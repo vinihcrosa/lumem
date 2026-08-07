@@ -1,0 +1,38 @@
+{
+  "id": "codex",
+  "minVersion": "0.147.0",
+  "detect": [
+    { "type": "dir", "path": "~/.codex" },
+    { "type": "bin", "name": "codex", "versionArgs": ["--version"] }
+  ],
+  "paths": {
+    "home": "~/.codex",
+    "skills": { "project": ".agents/skills", "global": "~/.agents/skills" },
+    "hooksConfig": [
+      { "scope": "project", "path": ".codex/hooks.json", "format": "json", "strategy": "own-file" }
+    ],
+    "contextDoc": { "project": "AGENTS.md", "maxBytes": 32768 }
+  },
+  "capabilities": {
+    "hooks.sessionStart": true,
+    "hooks.sessionEnd": true,
+    "hooks.userPromptSubmit": true,
+    "hooks.postToolUse": true,
+    "hooks.envProjectDir": false,
+    "hooks.requiresTrust": true,
+    "hooks.stdoutInjection": true,
+    "platform.windows": true
+  },
+  "eventMap": {
+    "inject": "SessionStart",
+    "capturePrompt": "UserPromptSubmit",
+    "captureTool": "PostToolUse",
+    "end": "SessionEnd"
+  },
+  "injection": ["hook-stdout", "context-doc-block", "skill-instruction"],
+  "headless": {
+    "command": ["codex", "exec"],
+    "promptVia": "stdin",
+    "modelFlag": "--model"
+  }
+}

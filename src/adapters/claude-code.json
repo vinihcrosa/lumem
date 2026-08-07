@@ -1,0 +1,44 @@
+{
+  "id": "claude-code",
+  "minVersion": "2.1.224",
+  "detect": [
+    { "type": "dir", "path": "~/.claude" },
+    { "type": "bin", "name": "claude", "versionArgs": ["--version"] }
+  ],
+  "paths": {
+    "home": "~/.claude",
+    "skills": { "project": ".claude/skills", "global": "~/.claude/skills" },
+    "hooksConfig": [
+      {
+        "scope": "project",
+        "path": ".claude/settings.json",
+        "format": "json",
+        "strategy": "merge-json"
+      }
+    ],
+    "contextDoc": { "project": "CLAUDE.md", "maxBytes": 40000 }
+  },
+  "capabilities": {
+    "hooks.sessionStart": true,
+    "hooks.sessionEnd": true,
+    "hooks.userPromptSubmit": true,
+    "hooks.postToolUse": true,
+    "hooks.envProjectDir": true,
+    "hooks.requiresTrust": false,
+    "hooks.stdoutInjection": true,
+    "platform.windows": true
+  },
+  "eventMap": {
+    "inject": "SessionStart",
+    "capturePrompt": "UserPromptSubmit",
+    "captureTool": "PostToolUse",
+    "end": "SessionEnd"
+  },
+  "injection": ["hook-stdout", "skill-instruction"],
+  "headless": {
+    "command": ["claude", "-p", "--output-format", "json"],
+    "promptVia": "stdin",
+    "modelFlag": "--model",
+    "defaultModel": "haiku"
+  }
+}

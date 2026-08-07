@@ -251,3 +251,19 @@ describe('detect: robustness', () => {
     expect(result).toEqual({ detected: false, matchedRules: 0 })
   })
 })
+
+describe('detect: version probe with pipe-holding grandchild (regression)', () => {
+  it('returns promptly even when a background child inherits stdout', () => {
+    const dir = tmpDir()
+    const slowbin = path.join(dir, 'slowbin')
+    fs.writeFileSync(slowbin, '#!/bin/sh\necho "slowbin 3.3.3"\n( sleep 5 & )\nexit 0\n')
+    fs.chmodSync(slowbin, 0o755)
+    const start = Date.now()
+    const result = detect(
+      makeDescriptor([{ type: 'bin', name: 'slowbin', versionArgs: ['--version'] }]),
+      { HOME: emptyHome, PATH: dir },
+    )
+    expect(result.version).toBe('3.3.3')
+    expect(Date.now() - start).toBeLessThan(2500)
+  })
+})

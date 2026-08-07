@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import type { AdapterDescriptor } from '../../adapters/schema'
 import { expandHome } from '../shared/fsx'
@@ -63,13 +64,33 @@ function findBin(name: string, pathEnv: string | undefined): string | undefined 
  * timeout, nonzero exit, no match) yields undefined.
  */
 function probeVersion(binPath: string, versionArgs: string[]): string | undefined {
+  // Capture output via a temp FILE, not a pipe: with a pipe, spawnSync stays
+  // blocked while any grandchild keeps the inherited stdout fd open (e.g.
+  // `codex --version` spawning an update check), even after the timeout kills
+  // the child. A file fd has no reader to block on.
+  let tmpDir: string | undefined
   try {
-    const result = spawnSync(binPath, versionArgs, { timeout: 3000, encoding: 'utf8' })
-    if (result.error || result.status !== 0) return undefined
-    const match = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.match(SEMVER_TOKEN)
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-probe-'))
+    const outPath = path.join(tmpDir, 'out')
+    const fd = fs.openSync(outPath, 'w')
+    let failed: boolean
+    try {
+      const result = spawnSync(binPath, versionArgs, {
+        timeout: 3000,
+        killSignal: 'SIGKILL',
+        stdio: ['ignore', fd, fd],
+      })
+      failed = result.error !== undefined || result.status !== 0
+    } finally {
+      fs.closeSync(fd)
+    }
+    if (failed) return undefined
+    const match = fs.readFileSync(outPath, 'utf8').match(SEMVER_TOKEN)
     return match?.[0]
   } catch {
     return undefined
+  } finally {
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true })
   }
 }
 

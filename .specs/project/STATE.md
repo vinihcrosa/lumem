@@ -23,7 +23,14 @@
 
 ## Blockers
 
-(nenhum)
+- [2026-08-07] Limite de sessão do Claude atingido durante a fase Execute (reset 20h America/Sao_Paulo). Agents de T14, T22, T23, T37 morreram no meio; arquivos RED órfãos removidos, repo verde (246 testes). Retomar relançando essas 4 tasks.
+
+## Handoff de execução (para retomar)
+
+**Concluídas e commitadas (16):** T1–T7 (M0 completo ✅ — doctor real identifica os 2 harnesses), T8–T13, T20, T21.
+**Próximas (deps satisfeitas):** T14 (apply), T22 (budget), T23 (limits), T37 (patch) — relançar; depois T15/T16 (precisam T14), T24/T26 (precisam T22), T25 (livre, src/cli).
+**Regra nova de orquestração:** subagents de comandos CLI NÃO tocam `src/cli/index.ts` — exportam `registerX(program)` e o orquestrador fia no index (evita conflito entre agents paralelos).
+**Fix pendente (fora de task, achado no T7):** `probeVersion` em `src/core/harness/detect.ts` pendura quando grandchild segura o pipe do stdout (codex --version com cache frio ~43s; spawnSync timeout não resolve). Fix: capturar stdout/stderr via arquivo temp (fd), não pipe; teste com bin fixture que spawna filho background segurando stdout — duração < 2s.
 
 ## Todos
 

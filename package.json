@@ -1,0 +1,32 @@
+{
+  "name": "lumem",
+  "version": "0.1.0",
+  "description": "Memory and self-learning layer for coding agents (Claude Code, Codex)",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "lumem": "./dist/cli.js"
+  },
+  "files": ["dist", "assets", "src/adapters/*.json"],
+  "scripts": {
+    "build": "tsup",
+    "check": "biome check . && tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "verify": "npm run check && vitest run --passWithNoTests && npm run build",
+    "bench:hook": "node scripts/bench-hook.mjs"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -15,7 +15,7 @@
 
 ## Open Decisions (PRD §13 — assumidos com default, confirmar com o autor)
 
-1. **Nome npm.** Assumido: verificar `lumem` no registry em M0; se ocupado, publicar `@<user>/lumem` com `"bin": { "lumem": ... }`.
+1. ~~**Nome npm.**~~ **RESOLVIDA** [2026-08-07]: `npm view lumem` → 404, nome livre. Pacote publica como `lumem`.
 2. **Memória de projeto commitada?** Assumido: **sim** (default do PRD). Reverter para gitignored+opt-in só se PRs ficarem ruidosos.
 3. **Runtime da consolidação.** Assumido: harness em uso (`claude -p` / `codex exec`) com modelo barato por padrão, configurável em `lumem.config.json`. Evita credencial extra; custo controlado pelo gate.
 4. **Dois harnesses no mesmo repo.** Assumido: **memória compartilhada** (mesmo projeto, mesmo conhecimento). Segregação só se surgir conflito real.
@@ -28,7 +28,7 @@
 ## Todos
 
 - [x] Reverificar tabela de capacidades §7.1 contra versões atuais de Claude Code e Codex — feito 2026-08-07, resultado em design.md §0
-- [ ] M0: checar disponibilidade do nome `lumem` no npm registry — agendado na task T1 (tasks.md)
+- [x] M0: checar disponibilidade do nome `lumem` no npm registry — feito na T1: livre (404)
 
 ## Lessons
 

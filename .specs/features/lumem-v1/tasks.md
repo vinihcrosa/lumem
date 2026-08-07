@@ -80,7 +80,7 @@ T1,T41 ──→ T47 [P]
 
 ## Fase 0 — M0
 
-### T1: Scaffold do repositório
+### T1: Scaffold do repositório ✅
 **What**: `package.json` (ESM, `engines.node>=20`, `bin: {lumem}`), tsconfig, biome, vitest, tsup multi-entry (`cli`, `lumem-hook`, `lumem-runner`), scripts `check`/`verify`/`build`/`bench:hook`; checar disponibilidade do nome `lumem` no npm registry e registrar resultado em STATE.md (decisão aberta #1).
 **Where**: raiz; `src/` esqueleto vazio
 **Depends on**: None · **Reuses**: — · **Requirement**: OPS-04, OPS-03 (parcial)

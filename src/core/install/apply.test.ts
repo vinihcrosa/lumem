@@ -811,4 +811,36 @@ describe('applyPlan — idempotence with planInstall', () => {
       expect(fs.readFileSync(fx.lockPath).equals(lockBytes)).toBe(true)
     })
   }
+  it('a rendered hook-config replans as skip, not conflict (idempotence)', () => {
+    const fx = setup()
+    const artifacts = [
+      artifactAt(fx, {
+        id: 'hook-config:claude-code',
+        kind: 'hook-config',
+        file: 'harness/claude-code/hooks.tmpl.json',
+        relPath: path.join('.claude', 'settings.json'),
+        content: HOOK_TEMPLATE,
+      }),
+    ]
+    const planArgs = { artifacts, projectDir: fx.projectDir, globalDirs: {}, mode: 'copy' as const }
+
+    const first = applyPlan({
+      plan: planInstall({ ...planArgs, lock: readLock(fx.lumemDir) }),
+      artifacts,
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+    })
+    expect(first.errors).toEqual([])
+    expect(first.applied).toHaveLength(1)
+
+    // The lock records the source hash for versioning and the rendered hash for
+    // drift: without the latter the destination never matches and every replan
+    // reports a permanent conflict.
+    const entry = readLock(fx.lumemDir).entries[0]
+    expect(entry?.contentHash).toBeDefined()
+    expect(entry?.contentHash).not.toBe(entry?.hash)
+
+    const secondPlan = planInstall({ ...planArgs, lock: readLock(fx.lumemDir) })
+    expect(secondPlan.actions.map((a) => a.type)).toEqual(['skip'])
+  })
 })

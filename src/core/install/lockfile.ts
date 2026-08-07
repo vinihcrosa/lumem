@@ -7,8 +7,15 @@ export interface LockEntry {
   installedAt: string
   /** Absolute path of the installed artifact. */
   destPath: string
-  /** sha256 of the installed content at install time. */
+  /** sha256 of the SOURCE artifact at install time — identifies the version. */
   hash: string
+  /**
+   * sha256 of what was actually written to `destPath`. Differs from `hash`
+   * whenever install renders the source (hook-config templates substitute
+   * `{{HOOK_BUNDLE}}`). Absent on entries written before this field existed,
+   * where source and destination content were the same.
+   */
+  contentHash?: string
   mode: 'symlink' | 'copy'
   backupPath?: string
 }
@@ -40,6 +47,7 @@ function isLockEntry(value: unknown): value is LockEntry {
     typeof e.installedAt === 'string' &&
     typeof e.destPath === 'string' &&
     typeof e.hash === 'string' &&
+    (e.contentHash === undefined || typeof e.contentHash === 'string') &&
     (e.mode === 'symlink' || e.mode === 'copy') &&
     (e.backupPath === undefined || typeof e.backupPath === 'string')
   )
@@ -74,6 +82,7 @@ export function writeLock(lumemDir: string, lock: Lockfile): void {
       installedAt: e.installedAt,
       destPath: e.destPath,
       hash: e.hash,
+      ...(e.contentHash !== undefined ? { contentHash: e.contentHash } : {}),
       mode: e.mode,
       ...(e.backupPath !== undefined ? { backupPath: e.backupPath } : {}),
     })),

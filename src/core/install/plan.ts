@@ -101,13 +101,16 @@ export function planInstall(opts: {
     }
 
     if (entry !== undefined) {
-      if (dest.hash === artifact.hash) {
+      // Compare the destination against what install actually wrote, which is
+      // the rendered content for templated artifacts — not the source hash.
+      const installed = entry.contentHash ?? entry.hash
+      if (dest.hash === installed) {
         return entry.hash === artifact.hash
           ? { ...base, type: 'skip', reason: 'up-to-date' }
-          : { ...base, type: 'update', reason: 'already at new version; refreshing stale lock' }
+          : { ...base, type: 'update', reason: 'new version; existing install unmodified' }
       }
-      if (dest.hash === entry.hash) {
-        return { ...base, type: 'update', reason: 'new version; existing install unmodified' }
+      if (dest.hash === artifact.hash) {
+        return { ...base, type: 'update', reason: 'already at new version; refreshing stale lock' }
       }
       return force
         ? { ...base, type: 'update', reason: 'overwriting local edits (force)' }

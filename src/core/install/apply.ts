@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { atomicWrite } from '../shared/fsx'
+import { atomicWrite, sha256 } from '../shared/fsx'
 import { backupOnce } from './backup'
 import { type LockEntry, readLock, writeLock } from './lockfile'
 import type { ManifestArtifact } from './manifest'
@@ -51,6 +51,12 @@ interface WriteContext {
 interface WriteResult {
   backupPath?: string
   reason?: string
+  /**
+   * sha256 of the bytes that landed at the destination, when they differ from
+   * the source artifact (rendered templates). Left unset when the destination
+   * holds the source content verbatim, including symlinks.
+   */
+  contentHash?: string
 }
 
 function classifyDest(destPath: string): DestKind {
@@ -119,9 +125,11 @@ function writeHookConfig(ctx: WriteContext): WriteResult {
   const template = fs.readFileSync(ctx.artifact.srcPath, 'utf8')
   const content = template.replaceAll(HOOK_BUNDLE_TOKEN, ctx.hookBundlePath)
 
+  const contentHash = sha256(content)
+
   if (kind === 'absent' || ctx.owned) {
     atomicWrite(ctx.destPath, content)
-    return {}
+    return { contentHash }
   }
 
   // SPEC_DEVIATION: merge JSON para .claude/settings.json chega na T33; T14 trata own-file genericamente.
@@ -130,7 +138,7 @@ function writeHookConfig(ctx: WriteContext): WriteResult {
     baseDir: ctx.baseDir,
   })
   atomicWrite(ctx.destPath, content)
-  return { backupPath, reason: 'replaced (backup kept)' }
+  return { backupPath, reason: 'replaced (backup kept)', contentHash }
 }
 
 function errorMessage(err: unknown): string {
@@ -226,6 +234,7 @@ export function applyPlan(opts: ApplyOptions): ApplyReport {
         installedAt: new Date().toISOString(),
         destPath,
         hash: artifact.hash,
+        ...(result.contentHash !== undefined ? { contentHash: result.contentHash } : {}),
         mode: action.mode,
         ...(backupPath !== undefined ? { backupPath } : {}),
       })

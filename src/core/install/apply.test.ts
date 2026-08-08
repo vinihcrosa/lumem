@@ -277,17 +277,19 @@ describe('applyPlan — create and update of file artifacts', () => {
     expect(fs.readFileSync(dest, 'utf8')).toBe('olá, 世界 🚀\n')
   })
 
+  // Uses a skill: hook bundles and hook-config are always copied, never linked
+  // (see 'bundles and hook-config are never symlinked' below).
   it('symlink update repoints an existing symlink to the new srcPath', () => {
     const fx = setup()
     const bundle = artifactAt(fx, {
-      id: 'hook-bundle:lumem-hook',
-      kind: 'hook-bundle',
-      file: 'dist-v2/lumem-hook.mjs',
-      relPath: path.join('.lumem', 'bin', 'lumem-hook.mjs'),
+      id: 'skill:lumem-memory@claude-code',
+      kind: 'skill',
+      file: 'skills-v2/lumem-memory/SKILL.md',
+      relPath: path.join('.claude', 'skills', 'lumem-memory', 'SKILL.md'),
       content: 'export const v = 2\n',
     })
     const dest = destOf(fx, bundle)
-    const oldSrc = path.join(fx.srcDir, 'dist-v1', 'lumem-hook.mjs')
+    const oldSrc = path.join(fx.srcDir, 'skills-v1', 'lumem-memory', 'SKILL.md')
     writeFile(oldSrc, 'export const v = 1\n')
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.symlinkSync(oldSrc, dest)
@@ -842,5 +844,68 @@ describe('applyPlan — idempotence with planInstall', () => {
 
     const secondPlan = planInstall({ ...planArgs, lock: readLock(fx.lumemDir) })
     expect(secondPlan.actions.map((a) => a.type)).toEqual(['skip'])
+  })
+})
+
+describe('applyPlan — bundles and hook-config are never symlinked', () => {
+  it('copies the hook bundle even in symlink mode, and records mode copy', () => {
+    const fx = setup()
+    const artifact = artifactAt(fx, {
+      id: 'hook-bundle:lumem-hook',
+      kind: 'hook-bundle',
+      file: 'dist/lumem-hook.mjs',
+      relPath: path.join('.lumem', 'bin', 'lumem-hook.mjs'),
+      content: 'export const hook = 1\n',
+    })
+    const dest = destOf(fx, artifact)
+
+    applyPlan({
+      plan: planOf({ ...actionFor('create', artifact, fx), mode: 'symlink' }),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+    })
+
+    // A symlink here would point into the npx cache the package was run from,
+    // and dangle the moment that cache is pruned.
+    expect(fs.lstatSync(dest).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(dest, 'utf8')).toBe('export const hook = 1\n')
+    expect(readLock(fx.lumemDir).entries[0]?.mode).toBe('copy')
+  })
+
+  it('records mode copy for a hook-config requested as symlink', () => {
+    const fx = setup()
+    const artifact = artifactAt(fx, {
+      id: 'hook-config:claude-code',
+      kind: 'hook-config',
+      file: 'harness/claude-code/hooks.tmpl.json',
+      relPath: path.join('.claude', 'settings.json'),
+      content: HOOK_TEMPLATE,
+    })
+    const dest = destOf(fx, artifact)
+
+    applyPlan({
+      plan: planOf({ ...actionFor('create', artifact, fx), mode: 'symlink' }),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+    })
+
+    expect(fs.lstatSync(dest).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(dest, 'utf8')).not.toContain('{{HOOK_BUNDLE}}')
+    expect(readLock(fx.lumemDir).entries[0]?.mode).toBe('copy')
+  })
+
+  it('still symlinks a skill in symlink mode', () => {
+    const fx = setup()
+    const artifact = skillArtifact(fx, 'lumem-memory', '# memory\n')
+    applyPlan({
+      plan: planOf({ ...actionFor('create', artifact, fx), mode: 'symlink' }),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+    })
+    expect(fs.lstatSync(destOf(fx, artifact)).isSymbolicLink()).toBe(true)
+    expect(readLock(fx.lumemDir).entries[0]?.mode).toBe('symlink')
   })
 })

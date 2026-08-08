@@ -59,6 +59,23 @@ interface WriteResult {
   contentHash?: string
 }
 
+/**
+ * Some artifacts are never symlinked, whatever the requested mode:
+ *
+ * - `hook-bundle` — the source lives wherever the package was resolved from,
+ *   which for `npx lumem install` is an ephemeral cache. A symlink into it
+ *   dangles as soon as the cache is pruned, and a dangling hook is exactly the
+ *   broken session NFR-1 forbids.
+ * - `hook-config` — the destination holds rendered content ({{HOOK_BUNDLE}}
+ *   substituted), so it cannot be a link to the raw template.
+ */
+function effectiveMode(
+  kind: ManifestArtifact['kind'],
+  requested: 'symlink' | 'copy',
+): 'symlink' | 'copy' {
+  return kind === 'hook-bundle' || kind === 'hook-config' ? 'copy' : requested
+}
+
 function classifyDest(destPath: string): DestKind {
   const stat = fs.lstatSync(destPath, { throwIfNoEntry: false })
   if (stat === undefined) return 'absent'
@@ -217,10 +234,11 @@ export function applyPlan(opts: ApplyOptions): ApplyReport {
       }
 
       const previous = entries.get(artifactId)
+      const mode = effectiveMode(artifact.kind, action.mode)
       const ctx: WriteContext = {
         artifact,
         destPath,
-        mode: action.mode,
+        mode,
         owned: previous !== undefined && previous.destPath === destPath,
         backupsDir,
         baseDir: projectDir,
@@ -235,7 +253,7 @@ export function applyPlan(opts: ApplyOptions): ApplyReport {
         destPath,
         hash: artifact.hash,
         ...(result.contentHash !== undefined ? { contentHash: result.contentHash } : {}),
-        mode: action.mode,
+        mode,
         ...(backupPath !== undefined ? { backupPath } : {}),
       })
       report.applied.push({

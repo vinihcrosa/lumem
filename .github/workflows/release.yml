@@ -99,9 +99,9 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           {
-            echo "### Published \`lumem@$version\`"
+            echo "### Published \`@vinihcrosa/lumem@$version\`"
             echo
             echo '```bash'
-            echo "npx lumem@$version init"
+            echo "npx @vinihcrosa/lumem@$version init"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

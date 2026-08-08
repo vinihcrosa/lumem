@@ -1,7 +1,7 @@
 #!/bin/sh
 # T47 — packaging gate (OPS-03, NFR-4, NFR-6).
 #
-# Proves that `npx lumem` works from a clean machine, by doing exactly what npm
+# Proves that `npx @vinihcrosa/lumem` works from a clean machine, by doing exactly what npm
 # would do and nothing else:
 #
 #   1. Build, then `npm pack --ignore-scripts` the real repo. The build is

@@ -68,7 +68,7 @@ jobs:
       - run: npm ci
 
       # Packs, extracts, installs the tarball into a clean directory and drives
-      # the installed binary end to end. This is what guarantees `npx lumem`
+      # the installed binary end to end. This is what guarantees `npx @vinihcrosa/lumem`
       # works for someone who has never seen this repo — the failure mode it
       # catches (a file missing from `files`) is invisible in the dev layout.
       - name: Verify the published package

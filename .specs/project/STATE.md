@@ -15,7 +15,7 @@
 
 ## Open Decisions (PRD §13 — assumed with a default, confirm with the author)
 
-1. ~~**npm name.**~~ **RESOLVED** [2026-08-07]: `npm view lumem` → 404, name is free. The package publishes as `lumem`.
+1. ~~**npm name.**~~ **RESOLVED** [2026-08-08]: publishes as **`@vinihcrosa/lumem`**, the fallback the PRD anticipated in §13.1. `npm view lumem` → 404 on 2026-08-07 proved the name was *unregistered*, which is not the same as *allowed*: the registry rejected the publish with `403 — Package name too similar to existing package mem`, its typosquatting guard. The binary stays `lumem`, so every command in the docs is unchanged; only the install line becomes `npx @vinihcrosa/lumem`.
 2. **Project memory committed?** Assumed: **yes** (PRD default). Revert to gitignored+opt-in only if PRs get noisy.
 3. **Consolidation runtime.** Assumed: the harness in use (`claude -p` / `codex exec`) with a cheap model by default, configurable in `lumem.config.json`. Avoids an extra credential; cost is held down by the gate.
 4. **Two harnesses in the same repo.** Assumed: **shared memory** (same project, same knowledge). Segregate only if a real conflict shows up.

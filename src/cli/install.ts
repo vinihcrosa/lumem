@@ -111,13 +111,20 @@ export function resolveDistDir(): string {
   return [DEV_DIST, PKG_DIST].find(isDirectory) ?? DEV_DIST
 }
 
+/**
+ * npm rejected the bare name `lumem` as too close to the existing `mem`, so the
+ * package ships scoped while the binary stays `lumem`. Both names are accepted
+ * here so a checkout from before the rename still resolves its version.
+ */
+const PACKAGE_NAMES = new Set(['@vinihcrosa/lumem', 'lumem'])
+
 /** Version stamped on every manifest artifact; unknown outside the package. */
 function resolveVersion(): string {
   for (const relative of ['../../package.json', '../package.json']) {
     try {
       const raw = fs.readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8')
       const pkg = JSON.parse(raw) as { name?: string; version?: string }
-      if (pkg.name === 'lumem' && typeof pkg.version === 'string') return pkg.version
+      if (PACKAGE_NAMES.has(pkg.name ?? '') && typeof pkg.version === 'string') return pkg.version
     } catch {
       // not this layout: try the next candidate
     }

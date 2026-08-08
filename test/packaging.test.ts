@@ -1,8 +1,8 @@
 // T47 — packaging (OPS-03, NFR-4).
 //
-// `npx lumem init` has to work on a machine that has never seen this repo, and
-// the only thing standing between that promise and a broken publish is the
-// `files` whitelist. Two layers guard it, because either alone is weak:
+// `npx @vinihcrosa/lumem init` has to work on a machine that has never seen this
+// repo, and the only thing standing between that promise and a broken publish is
+// the `files` whitelist. Two layers guard it, because either alone is weak:
 //
 //   1. Static: `package.json` is asserted directly — the publish metadata, and
 //      that every path the install path reads at runtime is covered by `files`
@@ -116,7 +116,7 @@ function coveredByFiles(entries: string[], relPath: string): boolean {
 
 describe('package.json publish metadata', () => {
   it('is a public, unprivate ESM package under MIT', () => {
-    expect(pkg.name).toBe('lumem')
+    expect(pkg.name).toBe('@vinihcrosa/lumem')
     expect(pkg.type).toBe('module')
     expect(pkg.license).toBe('MIT')
     expect(pkg.sideEffects).toBe(false)

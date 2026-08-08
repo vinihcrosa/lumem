@@ -480,6 +480,180 @@ describe('applyPlan — hook-config', () => {
   })
 })
 
+describe('applyPlan — hook-config merge-json', () => {
+  type Json = Record<string, unknown>
+
+  /** A settings.json as Claude Code really holds it: the user's own config. */
+  const USER_SETTINGS = `${JSON.stringify(
+    {
+      permissions: { allow: ['Bash(npm run test:*)'], deny: ['Bash(rm:*)'] },
+      env: { FOO: 'bar' },
+      hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo user' }] }] },
+    },
+    null,
+    2,
+  )}\n`
+
+  function hookConfigArtifact(fx: Fixture): ManifestArtifact {
+    return artifactAt(fx, {
+      id: 'hook-config:claude-code',
+      kind: 'hook-config',
+      file: 'harness/claude-code/hooks.tmpl.json',
+      relPath: path.join('.claude', 'settings.json'),
+      content: HOOK_TEMPLATE,
+    })
+  }
+
+  function read(destPath: string): Json {
+    return JSON.parse(fs.readFileSync(destPath, 'utf8')) as Json
+  }
+
+  function entriesOf(destPath: string, event: string): Json[] {
+    return ((read(destPath).hooks as Json)[event] ?? []) as Json[]
+  }
+
+  it('merges into a pre-existing settings.json, keeping every user key and hook', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+    const before = JSON.parse(USER_SETTINGS) as Json
+
+    const report = applyPlan({
+      plan: planOf(actionFor('update', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: { 'hook-config:claude-code': 'merge-json' },
+    })
+
+    const after = read(dest)
+    expect(report.errors).toEqual([])
+    expect(Object.keys(after)).toEqual(Object.keys(before))
+    expect(after.permissions).toEqual(before.permissions)
+    expect(after.env).toEqual(before.env)
+
+    const sessionStart = entriesOf(dest, 'SessionStart')
+    expect(sessionStart).toHaveLength(2)
+    expect(sessionStart[0]).toEqual({ hooks: [{ type: 'command', command: 'echo user' }] })
+    expect(sessionStart[0]?.__lumem__).toBeUndefined()
+    expect(sessionStart[1]?.__lumem__).toBe(true)
+    expect(JSON.stringify(sessionStart[1])).toContain('lumem-hook.mjs')
+    // an event the user did not have is added, owned by lumem
+    expect(entriesOf(dest, 'SessionEnd')).toHaveLength(1)
+    expect(entriesOf(dest, 'SessionEnd')[0]?.__lumem__).toBe(true)
+
+    // the user's file is still recoverable, and the lock tracks what was written
+    const backupPath = report.applied[0]?.backupPath as string
+    expect(fs.readFileSync(backupPath, 'utf8')).toBe(USER_SETTINGS)
+    expect(report.applied[0]?.reason).toBe('merged into the existing config (backup kept)')
+    expect(readLock(fx.lumemDir).entries[0]?.contentHash).toBe(
+      sha256(fs.readFileSync(dest, 'utf8')),
+    )
+  })
+
+  it('re-running does not duplicate lumem entries and takes no second backup', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+    const run = (): ReturnType<typeof applyPlan> =>
+      applyPlan({
+        plan: planOf(actionFor('update', artifact, fx)),
+        artifacts: [artifact],
+        lumemDir: fx.lumemDir,
+        projectDir: fx.projectDir,
+        hookConfigStrategy: { 'hook-config:claude-code': 'merge-json' },
+      })
+
+    const first = run()
+    const afterFirst = fs.readFileSync(dest, 'utf8')
+    const second = run()
+
+    expect(fs.readFileSync(dest, 'utf8')).toBe(afterFirst)
+    expect(entriesOf(dest, 'SessionStart')).toHaveLength(2)
+    expect(entriesOf(dest, 'SessionEnd')).toHaveLength(1)
+    expect(second.applied[0]?.reason).toBeUndefined()
+    expect(second.applied[0]?.backupPath).toBe(first.applied[0]?.backupPath)
+    expect(fs.readdirSync(fx.backupsDir)).toHaveLength(1)
+  })
+
+  it('creates the file from the template when no settings.json exists', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+
+    const report = applyPlan({
+      plan: planOf(actionFor('create', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: { 'hook-config:claude-code': 'merge-json' },
+    })
+
+    expect(fs.existsSync(fx.backupsDir)).toBe(false)
+    expect(report.applied[0]?.reason).toBeUndefined()
+    expect(entriesOf(dest, 'SessionStart')).toHaveLength(1)
+    expect(fs.readFileSync(dest, 'utf8')).not.toContain('{{HOOK_BUNDLE}}')
+  })
+
+  it('backs up a settings.json it cannot parse instead of merging into it', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, '{ not json at all\n')
+
+    const report = applyPlan({
+      plan: planOf(actionFor('update', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: { 'hook-config:claude-code': 'merge-json' },
+    })
+
+    const backupPath = report.applied[0]?.backupPath as string
+    expect(fs.readFileSync(backupPath, 'utf8')).toBe('{ not json at all\n')
+    expect(report.applied[0]?.reason).toBe('replaced (invalid JSON; backup kept)')
+    expect(entriesOf(dest, 'SessionStart')).toHaveLength(1)
+  })
+
+  it('accepts a strategy keyed by harness as well as by artifact id', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+
+    applyPlan({
+      plan: planOf(actionFor('update', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: { 'claude-code': 'merge-json' },
+    })
+
+    expect(read(dest).permissions).toBeDefined()
+    expect(entriesOf(dest, 'SessionStart')).toHaveLength(2)
+  })
+
+  it('defaults to own-file, so an unlisted harness keeps replacing its own file', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+
+    const report = applyPlan({
+      plan: planOf(actionFor('update', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: { 'hook-config:codex': 'merge-json' },
+    })
+
+    expect(report.applied[0]?.reason).toBe('replaced (backup kept)')
+    expect(read(dest).permissions).toBeUndefined()
+  })
+})
+
 describe('applyPlan — lockfile', () => {
   it('records one entry per applied create/update with provenance fields', () => {
     const fx = setup()

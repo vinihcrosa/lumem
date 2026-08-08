@@ -2,11 +2,24 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { atomicWrite, sha256 } from '../shared/fsx'
 import { backupOnce } from './backup'
+import { mergeHookConfig } from './hooks-config'
 import { type LockEntry, readLock, writeLock } from './lockfile'
 import type { ManifestArtifact } from './manifest'
 import type { InstallPlan } from './plan'
 
 const HOOK_BUNDLE_TOKEN = '{{HOOK_BUNDLE}}'
+
+/**
+ * How a hook-config destination is written, mirroring
+ * `AdapterDescriptor.paths.hooksConfig[].strategy`:
+ *
+ * - `own-file` — the destination belongs to lumem alone (`.codex/hooks.json`):
+ *   the rendered template replaces whatever is there.
+ * - `merge-json` — the destination is shared with the user
+ *   (`.claude/settings.json`): lumem's entries are merged into the existing JSON
+ *   and everything else is preserved.
+ */
+export type HookConfigStrategy = 'merge-json' | 'own-file'
 
 export interface AppliedEntry {
   artifactId: string
@@ -33,6 +46,13 @@ export interface ApplyOptions {
   /** Base dir for backup relative paths. */
   projectDir: string
   dryRun?: boolean
+  /**
+   * Write strategy for `hook-config` artifacts, looked up by artifact id first
+   * and by `dest.harness` second. The manifest does not carry the strategy, so
+   * the caller passes the descriptors' `paths.hooksConfig[].strategy` here.
+   * Anything not listed is written as `own-file`.
+   */
+  hookConfigStrategy?: Record<string, HookConfigStrategy>
 }
 
 type DestKind = 'absent' | 'symlink' | 'file' | 'other'
@@ -46,6 +66,8 @@ interface WriteContext {
   backupsDir: string
   baseDir: string
   hookBundlePath: string
+  /** Only meaningful for `hook-config` artifacts. */
+  strategy: HookConfigStrategy
 }
 
 interface WriteResult {
@@ -131,17 +153,38 @@ function installFile(ctx: WriteContext): WriteResult {
   return { backupPath }
 }
 
+/** Content of a destination that may be absent, unreadable or a broken symlink. */
+function readDestSafe(destPath: string): string | undefined {
+  try {
+    return fs.readFileSync(destPath, 'utf8')
+  } catch {
+    return undefined
+  }
+}
+
+function backupDest(ctx: WriteContext): string | undefined {
+  return backupOnce(ctx.destPath, { backupsDir: ctx.backupsDir, baseDir: ctx.baseDir })
+}
+
 /**
  * Render the hook-config template — `{{HOOK_BUNDLE}}` becomes the absolute path
- * of the installed hook bundle — and write it to the destination.
+ * of the installed hook bundle — and write it to the destination, own-file or
+ * merged into the user's JSON depending on the harness's declared strategy.
  */
 function writeHookConfig(ctx: WriteContext): WriteResult {
   const kind = classifyDest(ctx.destPath)
   assertWritableDest(ctx.destPath, kind)
 
   const template = fs.readFileSync(ctx.artifact.srcPath, 'utf8')
-  const content = template.replaceAll(HOOK_BUNDLE_TOKEN, ctx.hookBundlePath)
+  const rendered = template.replaceAll(HOOK_BUNDLE_TOKEN, ctx.hookBundlePath)
 
+  return ctx.strategy === 'merge-json'
+    ? mergeHookConfigDest(ctx, kind, rendered)
+    : replaceHookConfigDest(ctx, kind, rendered)
+}
+
+/** The destination is lumem's alone: the rendered content is the whole file. */
+function replaceHookConfigDest(ctx: WriteContext, kind: DestKind, content: string): WriteResult {
   const contentHash = sha256(content)
 
   if (kind === 'absent' || ctx.owned) {
@@ -149,13 +192,30 @@ function writeHookConfig(ctx: WriteContext): WriteResult {
     return { contentHash }
   }
 
-  // SPEC_DEVIATION: merge JSON para .claude/settings.json chega na T33; T14 trata own-file genericamente.
-  const backupPath = backupOnce(ctx.destPath, {
-    backupsDir: ctx.backupsDir,
-    baseDir: ctx.baseDir,
-  })
+  const backupPath = backupDest(ctx)
   atomicWrite(ctx.destPath, content)
   return { backupPath, reason: 'replaced (backup kept)', contentHash }
+}
+
+/**
+ * The destination is shared with the user (`.claude/settings.json`): lumem's
+ * hooks are merged in and everything else survives. A backup is kept only when
+ * there was user content at risk — a pre-existing file we did not install, or
+ * one we could not parse and are therefore about to replace.
+ */
+function mergeHookConfigDest(ctx: WriteContext, kind: DestKind, rendered: string): WriteResult {
+  const existing = kind === 'absent' ? undefined : readDestSafe(ctx.destPath)
+  const merged = mergeHookConfig(existing, rendered)
+  const preexisting = kind !== 'absent' && !ctx.owned
+
+  let reason: string | undefined
+  if (merged.replacedInvalid === true) reason = 'replaced (invalid JSON; backup kept)'
+  else if (preexisting) reason = 'merged into the existing config (backup kept)'
+
+  const backupPath = merged.replacedInvalid === true || preexisting ? backupDest(ctx) : undefined
+
+  atomicWrite(ctx.destPath, merged.content)
+  return { backupPath, reason, contentHash: sha256(merged.content) }
 }
 
 function errorMessage(err: unknown): string {
@@ -171,7 +231,7 @@ function errorMessage(err: unknown): string {
  * reports every action it would have taken with a 'would-' prefix.
  */
 export function applyPlan(opts: ApplyOptions): ApplyReport {
-  const { plan, artifacts, lumemDir, projectDir, dryRun = false } = opts
+  const { plan, artifacts, lumemDir, projectDir, dryRun = false, hookConfigStrategy = {} } = opts
   const report: ApplyReport = { applied: [], skipped: [], errors: [] }
 
   const artifactById = new Map<string, ManifestArtifact>()
@@ -243,6 +303,10 @@ export function applyPlan(opts: ApplyOptions): ApplyReport {
         backupsDir,
         baseDir: projectDir,
         hookBundlePath,
+        strategy:
+          hookConfigStrategy[artifact.id] ??
+          hookConfigStrategy[artifact.dest.harness] ??
+          'own-file',
       }
       const result = artifact.kind === 'hook-config' ? writeHookConfig(ctx) : installFile(ctx)
       const backupPath = result.backupPath ?? (ctx.owned ? previous?.backupPath : undefined)

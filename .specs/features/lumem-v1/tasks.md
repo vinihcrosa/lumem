@@ -1,7 +1,7 @@
 # lumem V1 — Tasks
 
 **Design**: [design.md](design.md) · **Spec**: [spec.md](spec.md) · **Testing**: [../../codebase/TESTING.md](../../codebase/TESTING.md)
-**Status**: Draft
+**Status**: In Progress — M0–M4 completos; falta T47 (packaging) e T48 (docs)
 
 **Convenções:**
 - Tools (todas as tasks): ferramentas built-in de arquivo + Bash. MCP: NONE. Skills: NONE. Exceções anotadas na task.
@@ -215,7 +215,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(install): apply transacional com lockfile`
 
-### T15: `lumem init`
+### T15: `lumem init` ✅
 **What**: detecta harnesses, seleção interativa (ou `--yes`), cria `.lumem/` (`memory/`, `local/`, `lumem.config.json` com defaults do design, `.gitignore` cobrindo `local/`), lockfile vazio.
 **Where**: `src/cli/init.ts` + testes integration
 **Depends on**: T5, T6, T12 · **Reuses**: detect/mode/lockfile · **Requirement**: CLI-01, MEM-06
@@ -224,7 +224,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): init com config e gitignore automáticos`
 
-### T16: `lumem install`
+### T16: `lumem install` ✅
 **What**: `install [--harness <id>] [--global] [--copy] [--dry-run]` — plan+apply nos harnesses selecionados; pós-instalação Codex imprime instrução `/hooks`.
 **Where**: `src/cli/install.ts` + testes integration
 **Depends on**: T14, T15 · **Reuses**: plan/apply · **Requirement**: CLI-02, INST-08, CLI-10, INST-09 (mensagem)
@@ -233,7 +233,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): install idempotente com dry-run`
 
-### T17: `lumem uninstall` [P]
+### T17: `lumem uninstall` [P] ✅
 **What**: remove artefatos do lockfile, restaura blocos gerenciados, preserva memória; `--purge` apaga `.lumem/` com confirmação.
 **Where**: `src/cli/uninstall.ts` + teste round-trip
 **Depends on**: T16 · **Reuses**: removeManagedBlock, lockfile · **Requirement**: CLI-04, OPS-06
@@ -243,7 +243,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): uninstall reversível com purge explícito`
 
-### T18: `lumem sync` [P]
+### T18: `lumem sync` [P] ✅
 **What**: reconcilia disco × manifest × lock; atualiza versão mudada; drift ⇒ avisa e exige `--force`; exit 3 em drift.
 **Where**: `src/cli/sync.ts` + testes integration
 **Depends on**: T16 · **Reuses**: plan/apply/drift · **Requirement**: CLI-03, INST-04
@@ -252,7 +252,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): sync com proteção de drift`
 
-### T19: Doctor estendido [P]
+### T19: Doctor estendido [P] ✅
 **What**: doctor soma: drift lock×disco, versão < mínima, hooks Codex instalados → lembrete de trust `/hooks`, última falha de consolidação (lê log).
 **Where**: `src/cli/doctor.ts` (modif.) + testes
 **Depends on**: T12, T16 · **Reuses**: drift, mode · **Requirement**: INST-09, HARN-04
@@ -337,7 +337,7 @@ T1,T41 ──→ T47 [P]
 
 ## Fase 3 — M3
 
-### T28: Hook entrypoint fail-open [P]
+### T28: Hook entrypoint fail-open [P] ✅
 **What**: `hooks/main.ts` → bundle `lumem-hook.mjs`: dispatch por argv `<harnessId> <event>`, wrapper try/catch total + deadline (`inject` 2000ms / captura 100ms) + `exit 0` incondicional; parse manual de stdin; teste de bundle **zero imports externos**.
 **Where**: `src/hooks/main.ts` + testes + assert no build
 **Depends on**: T2 · **Reuses**: fsx (builtins-only) · **Requirement**: OPS-01, OPS-05
@@ -373,7 +373,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(capture): sinal de comando recuperado`
 
-### T32: Handlers de evento do hook
+### T32: Handlers de evento do hook ✅
 **What**: `inject` (reusa lógica do `memory context` — import direto do core, não subprocess), `capture-prompt`, `capture-tool`, `end` (grava sinal `session end`; spawn do runner entra na T40); resolução de projeto `CLAUDE_PROJECT_DIR` → `cwd` do payload; `cwd` sem `.lumem/` ⇒ descarta com log.
 **Where**: `src/hooks/handlers/*.ts` + testes integration (stdin fake)
 **Depends on**: T26, T28, T29, T30, T31 · **Reuses**: budget, journal, heuristics · **Requirement**: CAP-01..03, CONS-06 (parcial)
@@ -382,7 +382,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(hooks): handlers inject/capture/end`
 
-### T33: Instalação de hooks por harness [P]
+### T33: Instalação de hooks por harness [P] ✅
 **What**: templates finais + wiring no install: Claude Code = bloco gerenciado em `.claude/settings.json` (merge-json); Codex = `.codex/hooks.json` (own-file; bloco se pré-existente); comandos apontam pro bundle absoluto.
 **Where**: `assets/harness/*/hooks.tmpl.json`, `src/core/install/hooks-config.ts` + testes
 **Depends on**: T14, T16, T28 · **Reuses**: managed-block, apply · **Requirement**: CONS-06, INST-05
@@ -391,7 +391,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(install): registro de hooks nos dois harnesses`
 
-### T34: Bench de latência (sequencial — bench não é parallel-safe)
+### T34: Bench de latência (sequencial — bench não é parallel-safe) ✅
 **What**: `npm run bench:hook` — 100 execuções reais `node dist/lumem-hook.mjs codex capture-prompt < fixture`, p95 reportado; falha se ≥ 150ms; step de CI.
 **Where**: `scripts/bench-hook.mjs`
 **Depends on**: T32 · **Reuses**: bundle · **Requirement**: CAP-04
@@ -429,7 +429,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(consolidate): patch validado com aplicação atômica`
 
-### T38: Skill lumem-consolidate final [P]
+### T38: Skill lumem-consolidate final [P] ✅
 **What**: prompt completo: regras anti-lixo PRD §5.4, schema JSON do patch embutido com exemplos, instrução de compactação quando flags presentes.
 **Where**: `assets/skills/lumem-consolidate/SKILL.md`
 **Depends on**: T8 · **Reuses**: schema T37 (copiado como texto) · **Requirement**: CONS-03
@@ -438,7 +438,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit (exemplo do prompt valida) · **Gate**: quick
 **Commit**: `feat(assets): prompt de consolidação com anti-lixo`
 
-### T39: Runner desanexado
+### T39: Runner desanexado ✅
 **What**: `runner/main.ts` → `lumem-runner.mjs`: re-checa gate, lock, monta prompt (skill + diário + memória atual), invoca `headless` do descritor (comando+modelFlag+defaultModel; runtime `auto` = harness da sessão), parseia, `applyPatch`, atualiza `state.json`, loga, libera lock.
 **Where**: `src/runner/main.ts` + testes integration (LLM = script mock no PATH)
 **Depends on**: T4, T35, T36, T37, T38 · **Reuses**: tudo da fase · **Requirement**: CONS-02, CONS-04
@@ -447,7 +447,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(runner): consolidação headless desanexada`
 
-### T40: SessionEnd → spawn do runner
+### T40: SessionEnd → spawn do runner ✅
 **What**: handler `end` ganha: gate pré-check barato ⇒ `spawn(execPath, [runner], {detached, stdio:'ignore'}).unref()`; hook retorna imediato.
 **Where**: `src/hooks/handlers/end.ts` (modif.) + teste
 **Depends on**: T32, T39 · **Reuses**: gate, runner · **Requirement**: CONS-02
@@ -456,7 +456,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(hooks): disparo desanexado da consolidação`
 
-### T41: `lumem memory consolidate` [P]
+### T41: `lumem memory consolidate` [P] ✅
 **What**: comando manual: `--force` (ignora gate, não o lock), `--dry-run` (imprime patch sem aplicar — roda LLM, avisa custo).
 **Where**: `src/cli/memory-consolidate.ts` + testes (mock LLM)
 **Depends on**: T39 · **Reuses**: runner core · **Requirement**: CLI-09, CLI-10
@@ -465,7 +465,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): consolidação manual com force e dry-run`
 
-### T42: Compactação via flags [P]
+### T42: Compactação via flags [P] ✅
 **What**: runner inclui no prompt os arquivos com `CompactionFlag` + instrução de compactar; pós-aplicação limpa flags; resultado respeita soft limits.
 **Where**: `src/runner/main.ts` (modif.), `src/core/consolidate/patch.ts` (se necessário) + testes
 **Depends on**: T23, T39 · **Reuses**: limits, runner · **Requirement**: MEM-04
@@ -485,7 +485,7 @@ T1,T41 ──→ T47 [P]
 
 ## Fase 5 — M5
 
-### T44: Suíte de chaos dos hooks [P]
+### T44: Suíte de chaos dos hooks [P] ✅
 **What**: injeção sistemática: exceção em cada handler, timeout, stdin malformado/vazio/gigante, disco cheio (mock fs), journal read-only ⇒ sempre exit 0 + log; cobre os 4 eventos.
 **Where**: `test/chaos/hooks.test.ts`
 **Depends on**: T32, T40 · **Reuses**: bundle real · **Requirement**: OPS-01
@@ -494,7 +494,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: chaos · **Gate**: full
 **Commit**: `test(hooks): chaos fail-open completo`
 
-### T45: Auditoria zero-rede [P]
+### T45: Auditoria zero-rede [P] ✅
 **What**: teste estático (grep de `http`/`fetch`/`net` fora de install/sync) + runtime (roda doctor/status/memory/consolidate-mock com resolver DNS bloqueado) provando NFR-3.
 **Where**: `test/no-network.test.ts`
 **Depends on**: T41 · **Reuses**: — · **Requirement**: OPS-02
@@ -503,7 +503,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `test: auditoria zero rede em runtime`
 
-### T46: Rotação de log [P]
+### T46: Rotação de log [P] ✅
 **What**: implementa rotação real no `log.ts` (tamanho máx + N arquivos), substituindo stub da T2.
 **Where**: `src/core/shared/log.ts` (modif.) + testes
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: OPS-09

@@ -6,7 +6,7 @@ import type { AdapterDescriptor } from '../adapters/schema'
 import { CONFIG_FILE_NAME, type LumemConfig, readConfig } from '../core/config'
 import { detect } from '../core/harness/detect'
 import { loadDescriptors } from '../core/harness/load'
-import { applyPlan } from '../core/install/apply'
+import { type HookConfigStrategy, applyPlan } from '../core/install/apply'
 import { readLock } from '../core/install/lockfile'
 import { type ManifestArtifact, buildManifest } from '../core/install/manifest'
 import { planInstall } from '../core/install/plan'
@@ -181,6 +181,23 @@ function resolveInstallMode(
 }
 
 /**
+ * How each harness's hook config is written, read straight off the descriptors:
+ * `hook-config:<id>` → `paths.hooksConfig[0].strategy`. The manifest does not
+ * carry the strategy, so plan and apply are both told here — and a harness left
+ * out of the map is written as `own-file`.
+ */
+export function hookConfigStrategies(
+  descriptors: Pick<AdapterDescriptor, 'id' | 'paths'>[],
+): Record<string, HookConfigStrategy> {
+  const strategies: Record<string, HookConfigStrategy> = {}
+  for (const descriptor of descriptors) {
+    const target = descriptor.paths.hooksConfig[0]
+    if (target !== undefined) strategies[`hook-config:${descriptor.id}`] = target.strategy
+  }
+  return strategies
+}
+
+/**
  * Retarget the project-scoped manifest at each harness's global scope: skills
  * move to `paths.skills.global` under `paths.home` (expanded against the
  * injected HOME). Hook bundles and hook configs stay in the project — the
@@ -313,6 +330,8 @@ export function runInstall(
     report.notes.push(...retargeted.notes)
   }
 
+  const hookConfigStrategy = hookConfigStrategies(selected)
+
   const plan = planInstall({
     artifacts,
     lock: readLock(lumemDir),
@@ -320,6 +339,7 @@ export function runInstall(
     globalDirs,
     mode: resolveInstallMode(config, selected, opts.copy === true),
     ...(opts.force === true ? { force: true } : {}),
+    hookConfigStrategy,
   })
   report.actions = plan.actions.map((action) => ({
     artifactId: action.artifactId,
@@ -334,6 +354,7 @@ export function runInstall(
     lumemDir,
     projectDir: ctx.projectDir,
     ...(dryRun ? { dryRun: true } : {}),
+    hookConfigStrategy,
   })
   report.applied = applied.applied.map((entry) => ({
     artifactId: entry.artifactId,

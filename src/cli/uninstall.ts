@@ -1,10 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Command } from 'commander'
+import { loadDescriptors } from '../core/harness/load'
 import { applyPlan } from '../core/install/apply'
 import { type LockEntry, readLock } from '../core/install/lockfile'
 import { planUninstall } from '../core/install/plan'
 import type { CliContext } from './context'
+import { hookConfigStrategies } from './install'
 
 export interface UninstallReport {
   /** Artifacts taken off disk; `backupPath` is the user file put back in its place. */
@@ -205,12 +207,16 @@ export function runUninstall(
     ...(purge ? { purge: true } : {}),
   })
 
+  // A hook config lumem merged into (`.claude/settings.json`) must be unmerged,
+  // not deleted, so removal needs the same strategies the install was written
+  // with. Unreadable descriptors simply leave a harness on the own-file default.
   const applied = applyPlan({
     plan,
     artifacts: [],
     lumemDir,
     projectDir: ctx.projectDir,
     ...(dryRun ? { dryRun: true } : {}),
+    hookConfigStrategy: hookConfigStrategies(loadDescriptors(ctx.adaptersDir).descriptors),
   })
 
   report.removed = applied.applied

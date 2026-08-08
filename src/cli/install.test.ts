@@ -37,6 +37,21 @@ const CLAUDE_FILES = [
   '.lumem/bin/lumem-runner.mjs',
 ]
 
+/**
+ * Shaped like the real harness templates: everything lumem injects lives under
+ * `hooks.<Event>`, which is what merge-json adds to and unmerge takes back out.
+ */
+const HOOKS_TEMPLATE = `${JSON.stringify(
+  {
+    hooks: {
+      SessionStart: [{ hooks: [{ type: 'command', command: 'node "{{HOOK_BUNDLE}}" inject' }] }],
+      SessionEnd: [{ hooks: [{ type: 'command', command: 'node "{{HOOK_BUNDLE}}" end' }] }],
+    },
+  },
+  null,
+  2,
+)}\n`
+
 function tmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix))
 }
@@ -57,7 +72,7 @@ beforeAll(() => {
   for (const harness of ['claude-code', 'codex']) {
     const dir = path.join(assetsDir, 'harness', harness)
     fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'hooks.tmpl.json'), '{\n  "bundle": "{{HOOK_BUNDLE}}"\n}\n')
+    fs.writeFileSync(path.join(dir, 'hooks.tmpl.json'), HOOKS_TEMPLATE)
   }
 
   distDir = tmpDir('lumem-install-dist-')
@@ -191,6 +206,122 @@ describe('runInstall into a configured and detected harness', () => {
     expect(fs.readFileSync(abs(ctx, '.claude/settings.json'), 'utf8')).toContain(
       abs(ctx, '.lumem/bin/lumem-hook.mjs'),
     )
+  })
+})
+
+describe('runInstall into a settings.json the user already owns', () => {
+  type Json = Record<string, unknown>
+
+  const settings = '.claude/settings.json'
+
+  /** A settings.json as a real project holds it: permissions plus a hook of the user's own. */
+  const USER_SETTINGS = `${JSON.stringify(
+    {
+      permissions: { allow: ['Bash(npm run test:*)'], deny: ['Bash(rm:*)'] },
+      env: { FOO: 'bar' },
+      hooks: {
+        SessionStart: [{ hooks: [{ type: 'command', command: 'echo mine' }] }],
+      },
+    },
+    null,
+    2,
+  )}\n`
+
+  function withUserSettings(): CliContext {
+    const ctx = initProject(makeCtx(makeHome(['claude-code'])))
+    fs.mkdirSync(abs(ctx, '.claude'), { recursive: true })
+    fs.writeFileSync(abs(ctx, settings), USER_SETTINGS)
+    return ctx
+  }
+
+  function read(ctx: CliContext): Json {
+    return JSON.parse(fs.readFileSync(abs(ctx, settings), 'utf8')) as Json
+  }
+
+  function entriesOf(ctx: CliContext, event: string): Json[] {
+    return ((read(ctx).hooks as Json)[event] ?? []) as Json[]
+  }
+
+  it('merges without --force: exit 0, no conflict, every user key intact', () => {
+    const ctx = withUserSettings()
+
+    const { report, exitCode } = runInstall(ctx)
+
+    // a merge-json destination is not a conflict — merging is how it is honored
+    expect(exitCode).toBe(0)
+    expect(report.errors).toEqual([])
+    expect(report.skipped).toEqual([])
+    const action = report.actions.find((a) => a.artifactId === 'hook-config:claude-code')
+    expect(action?.type).toBe('update')
+    expect(action?.reason).toMatch(/merg/i)
+
+    const before = JSON.parse(USER_SETTINGS) as Json
+    const after = read(ctx)
+    expect(Object.keys(after)).toEqual(Object.keys(before))
+    expect(after.permissions).toEqual(before.permissions)
+    expect(after.env).toEqual(before.env)
+  })
+
+  it("keeps the user's hook and adds lumem's beside it, marked as lumem's", () => {
+    const ctx = withUserSettings()
+
+    expect(runInstall(ctx).exitCode).toBe(0)
+
+    const sessionStart = entriesOf(ctx, 'SessionStart')
+    expect(sessionStart).toHaveLength(2)
+    expect(sessionStart[0]).toEqual({ hooks: [{ type: 'command', command: 'echo mine' }] })
+    expect(sessionStart[1]?.__lumem__).toBe(true)
+    expect(JSON.stringify(sessionStart[1])).toContain(abs(ctx, '.lumem/bin/lumem-hook.mjs'))
+    expect(entriesOf(ctx, 'SessionEnd')).toHaveLength(1)
+  })
+
+  it('keeps the user file recoverable as a backup', () => {
+    const ctx = withUserSettings()
+
+    const { report } = runInstall(ctx)
+
+    const applied = report.applied.find((e) => e.artifactId === 'hook-config:claude-code')
+    expect(applied?.backupPath).toBeDefined()
+    expect(fs.readFileSync(applied?.backupPath ?? '', 'utf8')).toBe(USER_SETTINGS)
+  })
+
+  it('is idempotent: a second run skips and leaves the file byte-identical', () => {
+    const ctx = withUserSettings()
+    expect(runInstall(ctx).exitCode).toBe(0)
+    const afterFirst = fs.readFileSync(abs(ctx, settings))
+
+    const { report, exitCode } = runInstall(ctx)
+
+    expect(exitCode).toBe(0)
+    expect(report.applied).toEqual([])
+    expect(report.skipped.every((entry) => entry.reason === 'up-to-date')).toBe(true)
+    expect(fs.readFileSync(abs(ctx, settings))).toEqual(afterFirst)
+  })
+
+  it('backs up and replaces a settings.json it cannot parse', () => {
+    const ctx = initProject(makeCtx(makeHome(['claude-code'])))
+    fs.mkdirSync(abs(ctx, '.claude'), { recursive: true })
+    fs.writeFileSync(abs(ctx, settings), '{ not json at all\n')
+
+    const { report, exitCode } = runInstall(ctx)
+
+    expect(exitCode).toBe(0)
+    const applied = report.applied.find((e) => e.artifactId === 'hook-config:claude-code')
+    expect(applied?.backupPath).toBeDefined()
+    expect(fs.readFileSync(applied?.backupPath ?? '', 'utf8')).toBe('{ not json at all\n')
+    expect(entriesOf(ctx, 'SessionStart')).toHaveLength(1)
+  })
+
+  it('leaves an own-file harness owning its whole config', () => {
+    const ctx = initProject(makeCtx(makeHome(['codex'])))
+
+    expect(runInstall(ctx).exitCode).toBe(0)
+
+    const written = fs.readFileSync(abs(ctx, '.codex/hooks.json'), 'utf8')
+    expect(written).toBe(
+      HOOKS_TEMPLATE.replaceAll('{{HOOK_BUNDLE}}', abs(ctx, '.lumem/bin/lumem-hook.mjs')),
+    )
+    expect(written).not.toContain('__lumem__')
   })
 })
 

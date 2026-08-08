@@ -939,6 +939,183 @@ describe('applyPlan — remove', () => {
   })
 })
 
+describe('applyPlan — remove of a merge-json hook config', () => {
+  type Json = Record<string, unknown>
+
+  const STRATEGY = { 'hook-config:claude-code': 'merge-json' } as const
+
+  const USER_SETTINGS = `${JSON.stringify(
+    {
+      permissions: { allow: ['Bash(npm run test:*)'] },
+      hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo user' }] }] },
+    },
+    null,
+    2,
+  )}\n`
+
+  function hookConfigArtifact(fx: Fixture): ManifestArtifact {
+    return artifactAt(fx, {
+      id: 'hook-config:claude-code',
+      kind: 'hook-config',
+      file: 'harness/claude-code/hooks.tmpl.json',
+      relPath: path.join('.claude', 'settings.json'),
+      content: HOOK_TEMPLATE,
+    })
+  }
+
+  function install(fx: Fixture, artifact: ManifestArtifact): ReturnType<typeof applyPlan> {
+    return applyPlan({
+      plan: planOf(actionFor('update', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: STRATEGY,
+    })
+  }
+
+  function uninstall(fx: Fixture, artifact: ManifestArtifact): ReturnType<typeof applyPlan> {
+    return applyPlan({
+      plan: planOf({
+        type: 'remove',
+        artifactId: artifact.id,
+        destPath: destOf(fx, artifact),
+        mode: 'copy',
+        reason: 'installed by lumem',
+      }),
+      artifacts: [],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: STRATEGY,
+    })
+  }
+
+  function read(destPath: string): Json {
+    return JSON.parse(fs.readFileSync(destPath, 'utf8')) as Json
+  }
+
+  it("strips lumem's entries and keeps every user key and hook", () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+    install(fx, artifact)
+
+    const report = uninstall(fx, artifact)
+
+    expect(report.errors).toEqual([])
+    const after = read(dest)
+    expect(after.permissions).toEqual({ allow: ['Bash(npm run test:*)'] })
+    expect((after.hooks as Json).SessionStart).toEqual([
+      { hooks: [{ type: 'command', command: 'echo user' }] },
+    ])
+    // the event only lumem used goes with lumem
+    expect((after.hooks as Json).SessionEnd).toBeUndefined()
+    expect(fs.readFileSync(dest, 'utf8')).not.toContain('__lumem__')
+    expect(readLock(fx.lumemDir).entries).toEqual([])
+  })
+
+  it('keeps a user edit made after install instead of restoring the backup', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+    const installed = install(fx, artifact)
+
+    // the user edits the merged file: a backup restore would silently drop this
+    const merged = read(dest)
+    merged.permissions = { allow: ['Bash(npm run test:*)', 'Bash(git status)'] }
+    fs.writeFileSync(dest, `${JSON.stringify(merged, null, 2)}\n`)
+
+    const report = uninstall(fx, artifact)
+
+    expect(read(dest).permissions).toEqual({
+      allow: ['Bash(npm run test:*)', 'Bash(git status)'],
+    })
+    expect(report.applied[0]?.backupPath).toBeUndefined()
+    // the safety net itself stays on disk, untouched
+    const backupPath = installed.applied[0]?.backupPath as string
+    expect(fs.readFileSync(backupPath, 'utf8')).toBe(USER_SETTINGS)
+  })
+
+  it('deletes the file when nothing but lumem content remained', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    applyPlan({
+      plan: planOf(actionFor('create', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+      hookConfigStrategy: STRATEGY,
+    })
+
+    const report = uninstall(fx, artifact)
+
+    expect(fs.existsSync(dest)).toBe(false)
+    expect(report.applied[0]?.backupPath).toBeUndefined()
+    expect(readLock(fx.lumemDir).entries).toEqual([])
+  })
+
+  it('restores the backup when install had replaced a file it could not parse', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, '{ not json at all\n')
+    const installed = install(fx, artifact)
+    expect(installed.applied[0]?.reason).toBe('replaced (invalid JSON; backup kept)')
+
+    const report = uninstall(fx, artifact)
+
+    expect(fs.readFileSync(dest, 'utf8')).toBe('{ not json at all\n')
+    expect(report.applied[0]?.backupPath).toBe(installed.applied[0]?.backupPath)
+  })
+
+  it('tolerates a destination someone already deleted', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+    install(fx, artifact)
+    fs.unlinkSync(dest)
+
+    const report = uninstall(fx, artifact)
+
+    expect(report.errors).toEqual([])
+    expect(fs.existsSync(dest)).toBe(false)
+    expect(readLock(fx.lumemDir).entries).toEqual([])
+  })
+
+  it('leaves own-file removals on the delete-and-restore path', () => {
+    const fx = setup()
+    const artifact = hookConfigArtifact(fx)
+    const dest = destOf(fx, artifact)
+    writeFile(dest, USER_SETTINGS)
+    const installed = applyPlan({
+      plan: planOf(actionFor('update', artifact, fx)),
+      artifacts: [artifact],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+    })
+    expect(installed.applied[0]?.reason).toBe('replaced (backup kept)')
+
+    const report = applyPlan({
+      plan: planOf({
+        type: 'remove',
+        artifactId: artifact.id,
+        destPath: dest,
+        mode: 'copy',
+        reason: 'installed by lumem',
+      }),
+      artifacts: [],
+      lumemDir: fx.lumemDir,
+      projectDir: fx.projectDir,
+    })
+
+    expect(fs.readFileSync(dest, 'utf8')).toBe(USER_SETTINGS)
+    expect(report.applied[0]?.backupPath).toBe(installed.applied[0]?.backupPath)
+  })
+})
+
 describe('applyPlan — idempotence with planInstall', () => {
   for (const mode of ['symlink', 'copy'] as const) {
     it(`is a no-op on the second run in ${mode} mode`, () => {

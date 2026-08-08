@@ -41,6 +41,21 @@ const CODEX_FILES = [
 
 const BUNDLE_FILES = ['.lumem/bin/lumem-hook.mjs', '.lumem/bin/lumem-runner.mjs']
 
+/**
+ * Shaped like the real harness templates: everything lumem injects lives under
+ * `hooks.<Event>`, which is what merge-json adds to and unmerge takes back out.
+ */
+const HOOKS_TEMPLATE = `${JSON.stringify(
+  {
+    hooks: {
+      SessionStart: [{ hooks: [{ type: 'command', command: 'node "{{HOOK_BUNDLE}}" inject' }] }],
+      SessionEnd: [{ hooks: [{ type: 'command', command: 'node "{{HOOK_BUNDLE}}" end' }] }],
+    },
+  },
+  null,
+  2,
+)}\n`
+
 function tmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix))
 }
@@ -61,7 +76,7 @@ beforeAll(() => {
   for (const harness of ['claude-code', 'codex']) {
     const dir = path.join(assetsDir, 'harness', harness)
     fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'hooks.tmpl.json'), '{\n  "bundle": "{{HOOK_BUNDLE}}"\n}\n')
+    fs.writeFileSync(path.join(dir, 'hooks.tmpl.json'), HOOKS_TEMPLATE)
   }
 
   distDir = tmpDir('lumem-uninstall-dist-')
@@ -414,24 +429,74 @@ describe('runUninstall --purge', () => {
 })
 
 describe('runUninstall restores files lumem wrote into', () => {
-  const settings = '.claude/settings.json'
-  const userSettings = '{\n  "permissions": { "allow": ["Bash(ls:*)"] }\n}\n'
+  type Json = Record<string, unknown>
 
-  it('brings a shared file back exactly as the user had it', () => {
+  const settings = '.claude/settings.json'
+
+  /** The user's own settings.json: config lumem must never take with it. */
+  const USER_SETTINGS = `${JSON.stringify(
+    {
+      permissions: { allow: ['Bash(ls:*)'] },
+      hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo mine' }] }] },
+    },
+    null,
+    2,
+  )}\n`
+
+  /** init + install into a project whose settings.json already holds `content`. */
+  function installedOver(content: string): CliContext {
     const ctx = makeCtx(makeHome(['claude-code']))
     expect(runInit(ctx).exitCode).toBe(0)
     fs.mkdirSync(abs(ctx, '.claude'), { recursive: true })
-    fs.writeFileSync(abs(ctx, settings), userSettings)
+    fs.writeFileSync(abs(ctx, settings), content)
+    expect(runInstall(ctx).exitCode).toBe(0)
+    return ctx
+  }
 
-    // --force: install owns the file and keeps the user's bytes as a backup
-    const install = runInstall(ctx, { force: true })
-    expect(install.exitCode).toBe(0)
-    expect(fs.readFileSync(abs(ctx, settings), 'utf8')).not.toBe(userSettings)
+  function read(ctx: CliContext): Json {
+    return JSON.parse(fs.readFileSync(abs(ctx, settings), 'utf8')) as Json
+  }
+
+  it("takes lumem's entries out of a shared file and leaves the user's config", () => {
+    const ctx = installedOver(USER_SETTINGS)
+    expect(fs.readFileSync(abs(ctx, settings), 'utf8')).toContain('__lumem__')
 
     const { report, exitCode } = runUninstall(ctx)
 
     expect(exitCode).toBe(0)
-    expect(fs.readFileSync(abs(ctx, settings), 'utf8')).toBe(userSettings)
+    expect(report.errors).toEqual([])
+    const after = read(ctx)
+    expect(after.permissions).toEqual({ allow: ['Bash(ls:*)'] })
+    expect((after.hooks as Json).SessionStart).toEqual([
+      { hooks: [{ type: 'command', command: 'echo mine' }] },
+    ])
+    expect((after.hooks as Json).SessionEnd).toBeUndefined()
+    expect(fs.readFileSync(abs(ctx, settings), 'utf8')).not.toContain('__lumem__')
+  })
+
+  it('keeps an edit the user made between install and uninstall', () => {
+    const ctx = installedOver(USER_SETTINGS)
+
+    // the user adds a permission to the merged file; a backup restore loses it
+    const edited = read(ctx)
+    edited.permissions = { allow: ['Bash(ls:*)', 'Bash(git status)'] }
+    fs.writeFileSync(abs(ctx, settings), `${JSON.stringify(edited, null, 2)}\n`)
+
+    const { report, exitCode } = runUninstall(ctx)
+
+    expect(exitCode).toBe(0)
+    expect(read(ctx).permissions).toEqual({ allow: ['Bash(ls:*)', 'Bash(git status)'] })
+    const removed = report.removed.find((entry) => entry.artifactId === 'hook-config:claude-code')
+    expect(removed?.backupPath).toBeUndefined()
+  })
+
+  it('restores the backup when the file it replaced was not valid JSON', () => {
+    const ctx = installedOver('{ not json at all\n')
+
+    const { report, exitCode } = runUninstall(ctx)
+
+    expect(exitCode).toBe(0)
+    expect(fs.readFileSync(abs(ctx, settings), 'utf8')).toBe('{ not json at all\n')
     const restored = report.removed.find((entry) => entry.artifactId === 'hook-config:claude-code')
     expect(restored?.backupPath).toBeDefined()
   })
@@ -446,6 +511,15 @@ describe('runUninstall restores files lumem wrote into', () => {
     expect(fs.existsSync(abs(ctx, settings))).toBe(false)
     const removed = report.removed.find((entry) => entry.artifactId === 'hook-config:claude-code')
     expect(removed?.backupPath).toBeUndefined()
+  })
+
+  it('deletes an own-file hook config outright', () => {
+    const ctx = installed(['codex'], makeHome(['codex']))
+    expect(fs.existsSync(abs(ctx, '.codex/hooks.json'))).toBe(true)
+
+    expect(runUninstall(ctx).exitCode).toBe(0)
+
+    expect(fs.existsSync(abs(ctx, '.codex/hooks.json'))).toBe(false)
   })
 })
 

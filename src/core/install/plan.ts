@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { sha256 } from '../shared/fsx'
+import type { HookConfigStrategy } from './apply'
 import type { LockEntry, Lockfile } from './lockfile'
 import type { ManifestArtifact } from './manifest'
 
@@ -59,6 +60,20 @@ function resolveDestPath(
   return path.join(base, artifact.dest.relPath)
 }
 
+/**
+ * Whether this artifact is written by merging into whatever is already at the
+ * destination. Same lookup convention as applyPlan — artifact id first, harness
+ * second — and only `hook-config` artifacts have a strategy at all.
+ */
+function mergesIntoDest(
+  artifact: ManifestArtifact,
+  strategies: Record<string, HookConfigStrategy>,
+): boolean {
+  if (artifact.kind !== 'hook-config') return false
+  const strategy = strategies[artifact.id] ?? strategies[artifact.dest.harness]
+  return strategy === 'merge-json'
+}
+
 function byArtifactId(a: PlanAction, b: PlanAction): number {
   if (a.artifactId !== b.artifactId) return a.artifactId < b.artifactId ? -1 : 1
   return a.destPath < b.destPath ? -1 : a.destPath > b.destPath ? 1 : 0
@@ -76,8 +91,24 @@ export function planInstall(opts: {
   globalDirs: Record<string, string>
   mode: 'symlink' | 'copy'
   force?: boolean
+  /**
+   * Write strategy per `hook-config` artifact, keyed by artifact id or harness,
+   * exactly as applyPlan takes it. A `merge-json` destination is a file the user
+   * also owns, so finding their content there is expected rather than a
+   * conflict — see the pre-existing-file rule below. Anything not listed is
+   * planned as `own-file`.
+   */
+  hookConfigStrategy?: Record<string, HookConfigStrategy>
 }): InstallPlan {
-  const { artifacts, lock, projectDir, globalDirs, mode, force = false } = opts
+  const {
+    artifacts,
+    lock,
+    projectDir,
+    globalDirs,
+    mode,
+    force = false,
+    hookConfigStrategy = {},
+  } = opts
 
   const lockById = new Map<string, LockEntry>()
   for (const entry of lock.entries) {
@@ -119,6 +150,12 @@ export function planInstall(opts: {
 
     if (dest.hash === artifact.hash) {
       return { ...base, type: 'update', reason: 'identical file already present; adopting' }
+    }
+    // A merge-json destination is shared with the user by design: their content
+    // is preserved by merging into it, so flagging it as a conflict would only
+    // block the very write that protects it.
+    if (mergesIntoDest(artifact, hookConfigStrategy)) {
+      return { ...base, type: 'update', reason: 'merging into existing file' }
     }
     return force
       ? { ...base, type: 'update', reason: 'overwriting pre-existing file (force)' }

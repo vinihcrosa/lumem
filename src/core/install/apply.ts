@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { atomicWrite, sha256 } from '../shared/fsx'
 import { backupOnce } from './backup'
-import { mergeHookConfig } from './hooks-config'
+import { mergeHookConfig, unmergeHookConfig } from './hooks-config'
 import { type LockEntry, readLock, writeLock } from './lockfile'
 import type { ManifestArtifact } from './manifest'
 import type { InstallPlan } from './plan'
@@ -218,6 +218,65 @@ function mergeHookConfigDest(ctx: WriteContext, kind: DestKind, rendered: string
   return { backupPath, reason, contentHash: sha256(merged.content) }
 }
 
+interface RemoveResult {
+  /** Set only when the user's pre-install file was actually put back. */
+  backupPath?: string
+  reason?: string
+}
+
+/**
+ * Strategy for a removal, where the artifact id is all we have: the lockfile
+ * records neither kind nor harness. Hook-config ids are `hook-config:<harness>`,
+ * so the harness key is read off the id itself, mirroring the lookup writes use.
+ */
+function removalStrategy(
+  artifactId: string,
+  strategies: Record<string, HookConfigStrategy>,
+): HookConfigStrategy {
+  const byId = strategies[artifactId]
+  if (byId !== undefined) return byId
+  const prefix = 'hook-config:'
+  if (!artifactId.startsWith(prefix)) return 'own-file'
+  return strategies[artifactId.slice(prefix.length)] ?? 'own-file'
+}
+
+/** The destination is lumem's alone: delete it and put the user's file back. */
+function removeOwnFile(destPath: string, backupPath: string | undefined): RemoveResult {
+  removeDest(destPath)
+  const restored = backupPath !== undefined && restoreBackup(backupPath, destPath)
+  return restored && backupPath !== undefined ? { backupPath } : {}
+}
+
+/**
+ * The destination is shared with the user (`.claude/settings.json`): take
+ * lumem's marked entries out and leave the rest exactly as it now is.
+ *
+ * Restoring the backup here would throw away everything the user changed since
+ * install, so it happens only when the unmerge emptied the file — nothing of
+ * theirs was live in it, and their pre-install bytes are the truest thing left.
+ * With no backup either, the file was lumem's own creation and simply goes.
+ */
+function unmergeDest(destPath: string, backupPath: string | undefined): RemoveResult {
+  const kind = classifyDest(destPath)
+  if (kind === 'absent') return {}
+  assertWritableDest(destPath, kind)
+
+  const existing = readDestSafe(destPath)
+  // unreadable (a broken symlink, say): there is nothing to unmerge from
+  if (existing === undefined) return removeOwnFile(destPath, backupPath)
+
+  const remaining = unmergeHookConfig(existing)
+  if (remaining === undefined) {
+    const result = removeOwnFile(destPath, backupPath)
+    return result.backupPath !== undefined
+      ? { ...result, reason: 'nothing but lumem remained; restored the pre-install file' }
+      : { reason: 'removed (lumem created it)' }
+  }
+
+  if (remaining !== existing) atomicWrite(destPath, remaining)
+  return { reason: 'unmerged (the rest of the config was kept)' }
+}
+
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
@@ -271,14 +330,19 @@ export function applyPlan(opts: ApplyOptions): ApplyReport {
           })
           continue
         }
-        removeDest(destPath)
-        const restored = backupPath !== undefined && restoreBackup(backupPath, destPath)
+        // A merged config is the user's file with lumem's entries in it: the
+        // only correct removal is taking those entries back out.
+        const result =
+          removalStrategy(artifactId, hookConfigStrategy) === 'merge-json'
+            ? unmergeDest(destPath, backupPath)
+            : removeOwnFile(destPath, backupPath)
         entries.delete(artifactId)
         report.applied.push({
           artifactId,
           action: 'remove',
           destPath,
-          ...(restored && backupPath !== undefined ? { backupPath } : {}),
+          ...(result.backupPath !== undefined ? { backupPath: result.backupPath } : {}),
+          ...(result.reason !== undefined ? { reason: result.reason } : {}),
         })
         continue
       }

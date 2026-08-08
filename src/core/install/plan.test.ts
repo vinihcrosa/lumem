@@ -88,7 +88,11 @@ function plan(
   f: Fixture,
   artifacts: ManifestArtifact[],
   lock: Lockfile = emptyLock,
-  extra: { mode?: 'symlink' | 'copy'; force?: boolean } = {},
+  extra: {
+    mode?: 'symlink' | 'copy'
+    force?: boolean
+    hookConfigStrategy?: Record<string, 'merge-json' | 'own-file'>
+  } = {},
 ) {
   return planInstall({
     artifacts,
@@ -97,6 +101,9 @@ function plan(
     globalDirs: { '*': f.globalHome },
     mode: extra.mode ?? 'copy',
     force: extra.force,
+    ...(extra.hookConfigStrategy !== undefined
+      ? { hookConfigStrategy: extra.hookConfigStrategy }
+      : {}),
   })
 }
 
@@ -325,6 +332,107 @@ describe('planInstall', () => {
     const lock = lockOf(entryFor(a, dest, { hash: sha256('v1\n') }))
     const { actions } = plan(f, [a], lock)
     expect(actions[0]?.type).toBe('update')
+  })
+})
+
+describe('planInstall — merge-json hook configs', () => {
+  const MERGE = { 'hook-config:claude': 'merge-json' } as const
+
+  function settingsArtifact(f: Fixture, content = '{"hooks":{"SessionStart":[]}}\n') {
+    return makeArtifact(f, {
+      id: 'hook-config:claude',
+      kind: 'hook-config',
+      content,
+      dest: { relPath: '.claude/settings.json' },
+    })
+  }
+
+  it("plans update, not conflict, over the user's pre-existing settings.json", () => {
+    const f = makeFixture()
+    const a = settingsArtifact(f)
+    writeDest(destOf(f, a), '{"permissions":{"allow":["Bash(ls)"]}}\n')
+
+    const { actions } = plan(f, [a], emptyLock, { hookConfigStrategy: MERGE })
+
+    // merging IS how lumem avoids clobbering this file: it is never a conflict
+    expect(actions[0]?.type).toBe('update')
+    expect(actions[0]?.reason).toMatch(/merg/i)
+  })
+
+  it('accepts the strategy keyed by harness as well as by artifact id', () => {
+    const f = makeFixture()
+    const a = settingsArtifact(f)
+    writeDest(destOf(f, a), '{"permissions":{}}\n')
+
+    const { actions } = plan(f, [a], emptyLock, { hookConfigStrategy: { claude: 'merge-json' } })
+
+    expect(actions[0]?.type).toBe('update')
+  })
+
+  it('leaves own-file hook configs conflicting exactly as before', () => {
+    const f = makeFixture()
+    const a = settingsArtifact(f)
+    writeDest(destOf(f, a), '{"permissions":{}}\n')
+
+    const own = plan(f, [a], emptyLock, {
+      hookConfigStrategy: { 'hook-config:claude': 'own-file' },
+    })
+    const unlisted = plan(f, [a], emptyLock, {
+      hookConfigStrategy: { 'hook-config:codex': 'merge-json' },
+    })
+
+    expect(own.actions[0]?.type).toBe('conflict')
+    expect(unlisted.actions[0]?.type).toBe('conflict')
+  })
+
+  it('never softens drift on a destination lumem already tracks', () => {
+    const f = makeFixture()
+    const a = settingsArtifact(f)
+    const dest = destOf(f, a)
+    writeDest(dest, 'edited after install\n')
+    const lock = lockOf(entryFor(a, dest, { hash: sha256('v1\n') }))
+
+    const { actions } = plan(f, [a], lock, { hookConfigStrategy: MERGE })
+
+    expect(actions[0]).toMatchObject({
+      type: 'conflict',
+      reason: 'destination modified since install',
+    })
+  })
+
+  it('keeps an unreadable destination a conflict', () => {
+    const f = makeFixture()
+    const a = settingsArtifact(f)
+    fs.mkdirSync(destOf(f, a), { recursive: true })
+
+    const { actions } = plan(f, [a], emptyLock, { hookConfigStrategy: MERGE })
+
+    expect(actions[0]).toMatchObject({ type: 'conflict', reason: 'unreadable' })
+  })
+
+  it('applies to hook configs only, never to a skill of the same harness', () => {
+    const f = makeFixture()
+    const skill = makeArtifact(f, { id: 'skill:demo@claude', content: 'lumem\n' })
+    writeDest(destOf(f, skill), 'handwritten\n')
+
+    const { actions } = plan(f, [skill], emptyLock, {
+      hookConfigStrategy: { claude: 'merge-json' },
+    })
+
+    expect(actions[0]?.type).toBe('conflict')
+  })
+
+  it('adopts an identical pre-existing merge-json file rather than re-merging it', () => {
+    const f = makeFixture()
+    const a = settingsArtifact(f, '{"hooks":{}}\n')
+    writeDest(destOf(f, a), '{"hooks":{}}\n')
+
+    const { actions } = plan(f, [a], emptyLock, { hookConfigStrategy: MERGE })
+
+    expect(actions[0]).toMatchObject({
+      type: 'update',
+      reason: 'identical file already present; adopting',
+    })
   })
 })
 

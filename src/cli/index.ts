@@ -7,6 +7,7 @@ import { registerInitCommand } from './init'
 import { registerInstallCommand } from './install'
 import { registerMemoryConsolidateCommand } from './memory-consolidate'
 import { registerMemoryContextCommand } from './memory-context'
+import { registerMemoryLintCommand } from './memory-lint'
 import { registerMemoryReadCommands } from './memory-read'
 import { registerMemoryWriteCommands } from './memory-write'
 import { renderStatus, runStatus } from './status'
@@ -68,6 +69,7 @@ registerMemoryReadCommands(memory, buildContext, emit)
 registerMemoryWriteCommands(memory, buildContext, emit)
 registerMemoryContextCommand(memory, buildContext)
 registerMemoryConsolidateCommand(memory, buildContext, emit)
+registerMemoryLintCommand(memory, buildContext, emit)
 
 program.parseAsync().catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err))

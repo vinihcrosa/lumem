@@ -2,8 +2,32 @@
   "name": "lumem",
   "version": "0.1.0",
   "description": "Memory and self-learning layer for coding agents (Claude Code, Codex)",
+  "keywords": [
+    "memory",
+    "agent",
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "llm",
+    "ai",
+    "cli",
+    "context",
+    "skills",
+    "hooks",
+    "self-learning"
+  ],
+  "homepage": "https://github.com/vinihcrosa/lumem#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vinihcrosa/lumem.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vinihcrosa/lumem/issues"
+  },
+  "author": "vinihcrosa",
   "type": "module",
   "license": "MIT",
+  "sideEffects": false,
   "engines": {
     "node": ">=20"
   },
@@ -11,12 +35,18 @@
     "lumem": "./dist/cli.js"
   },
   "files": ["dist", "assets", "src/adapters/*.json"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "check": "biome check . && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "verify": "npm run check && vitest run --passWithNoTests && npm run build",
-    "bench:hook": "node scripts/bench-hook.mjs"
+    "verify:pack": "sh scripts/verify-pack.sh",
+    "bench:hook": "node scripts/bench-hook.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run verify"
   },
   "dependencies": {
     "commander": "^12.1.0",

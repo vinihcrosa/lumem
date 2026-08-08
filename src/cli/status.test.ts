@@ -86,7 +86,7 @@ describe('runStatus', () => {
 describe('renderStatus', () => {
   it('prints the empty message when nothing is installed', () => {
     const { report } = runStatus(makeCtx(tmpDir()))
-    expect(renderStatus(report)).toBe('nada instalado — rode `lumem install`')
+    expect(renderStatus(report)).toBe('nothing installed — run `lumem install`')
   })
 
   it('lists installed artifacts with their destination and mode', () => {

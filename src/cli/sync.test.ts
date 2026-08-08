@@ -360,7 +360,7 @@ describe('renderSync', () => {
   it('says everything is in sync when there is nothing to report', () => {
     expect(
       renderSync({ drift: [], actions: [], applied: [], skipped: [], errors: [], dryRun: false }),
-    ).toBe('tudo sincronizado')
+    ).toBe('everything in sync')
   })
 
   it('announces a dry run', () => {

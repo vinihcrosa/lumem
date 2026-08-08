@@ -25,7 +25,7 @@ export function runStatus(ctx: CliContext): { report: StatusReport; exitCode: nu
 
 export function renderStatus(report: StatusReport): string {
   if (report.installed.length === 0) {
-    return 'nada instalado — rode `lumem install`'
+    return 'nothing installed — run `lumem install`'
   }
   return report.installed
     .map((entry) => `${entry.artifactId} → ${entry.destPath} (${entry.mode}, ${entry.installedAt})`)

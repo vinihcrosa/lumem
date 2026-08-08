@@ -30,7 +30,7 @@ export function registerMemoryContextCommand(
 ): void {
   memoryCmd
     .command('context', { hidden: true })
-    .description('Imprimir o bloco de injeção de memória (fonte única da skill e do hook)')
+    .description('Print the memory injection block (single source for the skill and the hook)')
     .action(() => {
       const { text, exitCode } = runMemoryContext(buildContext())
       if (text !== '') process.stdout.write(text)

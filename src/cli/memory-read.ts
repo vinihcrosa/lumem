@@ -106,25 +106,25 @@ export function runMemorySearch(
 export function renderMemoryList(report: MemoryListReport): string {
   const lines =
     report.facts.length === 0
-      ? ['nenhum fato registrado']
+      ? ['no facts recorded']
       : report.facts.map((fact) => {
           const [first] = fact.body.split('\n')
           return `${fact.id}  [${fact.date}]  (${fact.type}/${fact.scope})  ${first ?? ''}`
         })
 
-  for (const warning of report.warnings) lines.push(`aviso: ${warning}`)
+  for (const warning of report.warnings) lines.push(`warning: ${warning}`)
   return lines.join('\n')
 }
 
 export function renderMemoryShow(report: MemoryShowReport): string {
   const fact = report.fact
-  if (!report.found || fact === undefined) return `fato ${report.id} não encontrado`
+  if (!report.found || fact === undefined) return `fact ${report.id} not found`
 
   return [
     `${fact.id}  [${fact.date}]  (${fact.type}/${fact.scope})`,
     fact.body,
     `src:${fact.src} conf:${fact.conf}`,
-    `arquivo: ${fact.file}`,
+    `file: ${fact.file}`,
   ].join('\n')
 }
 
@@ -139,9 +139,9 @@ export function registerMemoryReadCommands(
 ): void {
   memoryCmd
     .command('list')
-    .description('Listar fatos de memória (projeto + global)')
-    .option('--type <type>', 'filtrar por tipo: project | preference | correction')
-    .option('--scope <scope>', 'filtrar por escopo: project | global')
+    .description('List memory facts (project + global)')
+    .option('--type <type>', 'filter by type: project | preference | correction')
+    .option('--scope <scope>', 'filter by scope: project | global')
     .action((opts: MemoryListOptions) => {
       const ctx = buildContext()
       const { report, exitCode } = runMemoryList(ctx, opts)
@@ -151,8 +151,8 @@ export function registerMemoryReadCommands(
 
   memoryCmd
     .command('show')
-    .argument('<id>', 'id do fato exibido por `lumem memory list`')
-    .description('Mostrar um fato completo com sua proveniência')
+    .argument('<id>', 'fact id as shown by `lumem memory list`')
+    .description('Show a full fact with its provenance')
     .action((id: string) => {
       const ctx = buildContext()
       const { report, exitCode } = runMemoryShow(ctx, id)
@@ -162,8 +162,8 @@ export function registerMemoryReadCommands(
 
   memoryCmd
     .command('search')
-    .argument('<query>', 'substring buscada no corpo dos fatos (case-insensitive)')
-    .description('Buscar fatos por substring do corpo')
+    .argument('<query>', 'substring searched in fact bodies (case-insensitive)')
+    .description('Search facts by body substring')
     .action((query: string) => {
       const ctx = buildContext()
       const { report, exitCode } = runMemorySearch(ctx, query)

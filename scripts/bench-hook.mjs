@@ -40,11 +40,9 @@ const sessionId = 'bench'
 const journal = path.join(sessionsDir, `${sessionId}.jsonl`)
 fs.writeFileSync(
   journal,
-  Array.from(
-    { length: 500 },
-    (_, i) =>
-      JSON.stringify({ t: 'file', ts: '2026-08-07T14:00:00Z', path: `src/f${i}.ts`, tool: 'Edit' }),
-  ).join('\n') + '\n',
+  `${Array.from({ length: 500 }, (_, i) =>
+    JSON.stringify({ t: 'file', ts: '2026-08-07T14:00:00Z', path: `src/f${i}.ts`, tool: 'Edit' }),
+  ).join('\n')}\n`,
 )
 
 const payloads = {
@@ -94,7 +92,9 @@ fs.rmSync(projectDir, { recursive: true, force: true })
 const fmt = (n) => `${n.toFixed(1)} ms`
 console.log(`hook latency over ${RUNS} cold runs (budget p95 < ${BUDGET_MS} ms)\n`)
 for (const r of results) {
-  console.log(`  ${r.event.padEnd(15)} p50 ${fmt(r.p50).padStart(9)}   p95 ${fmt(r.p95).padStart(9)}   max ${fmt(r.max).padStart(9)}`)
+  console.log(
+    `  ${r.event.padEnd(15)} p50 ${fmt(r.p50).padStart(9)}   p95 ${fmt(r.p95).padStart(9)}   max ${fmt(r.max).padStart(9)}`,
+  )
 }
 
 // Only capture hooks carry the 150 ms budget: they fire on every prompt and

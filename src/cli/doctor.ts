@@ -200,7 +200,7 @@ export function renderDoctor(report: DoctorReport): string {
       const version = harness.version !== undefined ? ` ${harness.version}` : ''
       lines.push(`✔ ${harness.id}${version} (${harness.grade})`)
     } else {
-      lines.push(`✖ ${harness.id} — não detectado`)
+      lines.push(`✖ ${harness.id} — not detected`)
     }
     for (const capability of harness.missing) {
       lines.push(`  missing: ${capability}`)
@@ -209,12 +209,12 @@ export function renderDoctor(report: DoctorReport): string {
       lines.push(`  fallback: ${need} → ${via}`)
     }
     for (const warning of harness.warnings) {
-      lines.push(`  aviso: ${warning}`)
+      lines.push(`  warning: ${warning}`)
     }
   }
 
   if (report.versionIssues.length > 0) {
-    lines.push('versão abaixo do mínimo:')
+    lines.push('version below minimum:')
     for (const issue of report.versionIssues) {
       lines.push(`  ${issue}`)
     }
@@ -225,21 +225,21 @@ export function renderDoctor(report: DoctorReport): string {
     for (const entry of report.drift) {
       lines.push(`  ${entry.state} ${entry.artifactId} → ${entry.destPath}`)
     }
-    lines.push('  rode `lumem sync` para reconciliar (`--force` sobrescreve edições locais)')
+    lines.push('  run `lumem sync` to reconcile (`--force` overwrites local edits)')
   }
 
   if (report.trust.length > 0) {
     lines.push('trust:')
     for (const entry of report.trust) {
       lines.push(
-        `  ${entry.harness}: hooks instalados — rode \`/hooks\` no harness para revisar e confiar; até lá eles não rodam`,
+        `  ${entry.harness}: hooks installed — run \`/hooks\` in the harness to review and trust them; until then they stay inert`,
       )
     }
   }
 
   if (report.lastFailure !== undefined) {
     const { ts, event, message } = report.lastFailure
-    lines.push('última falha:')
+    lines.push('last failure:')
     lines.push(`  ${ts} ${event}${message !== '' ? `: ${message}` : ''}`)
   }
 

@@ -271,25 +271,25 @@ function purgeLumemDir(
 export function renderUninstall(report: UninstallReport): string {
   const lines: string[] = []
 
-  if (report.dryRun) lines.push('dry-run: nada foi removido')
+  if (report.dryRun) lines.push('dry-run: nothing was removed')
 
   for (const entry of report.removed) {
-    const restored = entry.backupPath !== undefined ? ` (restaurado de: ${entry.backupPath})` : ''
+    const restored = entry.backupPath !== undefined ? ` (restored from: ${entry.backupPath})` : ''
     lines.push(`- ${entry.artifactId} → ${entry.destPath}${restored}`)
   }
   for (const entry of report.skipped) {
     lines.push(`= ${entry.artifactId} (${entry.reason})`)
   }
-  if (report.purged) lines.push('purge: .lumem removido')
+  if (report.purged) lines.push('purge: .lumem removed')
   for (const entry of report.errors) {
     const scope = entry.artifactId === COMMAND_SCOPE ? '' : `${entry.artifactId}: `
-    lines.push(`erro: ${scope}${entry.message}`)
+    lines.push(`error: ${scope}${entry.message}`)
   }
   for (const note of report.notes) {
-    lines.push(`nota: ${note}`)
+    lines.push(`note: ${note}`)
   }
 
-  if (lines.length === 0) lines.push('nada a fazer')
+  if (lines.length === 0) lines.push('nothing to do')
   return lines.join('\n')
 }
 

@@ -398,7 +398,7 @@ function postInstallNotes(
 export function renderInstall(report: InstallReport): string {
   const lines: string[] = []
 
-  if (report.dryRun) lines.push('dry-run: nada foi escrito')
+  if (report.dryRun) lines.push('dry-run: nothing was written')
   if (report.harnesses.length > 0) lines.push(`harnesses: ${report.harnesses.join(', ')}`)
 
   for (const entry of report.applied) {
@@ -410,13 +410,13 @@ export function renderInstall(report: InstallReport): string {
   }
   for (const entry of report.errors) {
     const scope = entry.artifactId === COMMAND_SCOPE ? '' : `${entry.artifactId}: `
-    lines.push(`erro: ${scope}${entry.message}`)
+    lines.push(`error: ${scope}${entry.message}`)
   }
   for (const note of report.notes) {
-    lines.push(`nota: ${note}`)
+    lines.push(`note: ${note}`)
   }
 
-  if (lines.length === 0) lines.push('nada a fazer')
+  if (lines.length === 0) lines.push('nothing to do')
   return lines.join('\n')
 }
 

@@ -277,7 +277,7 @@ describe('renderMemoryList', () => {
 
   it('prints the empty message when there is no fact', () => {
     const { report } = runMemoryList(makeCtx(tmpDir(), tmpDir()))
-    expect(renderMemoryList(report)).toBe('nenhum fato registrado')
+    expect(renderMemoryList(report)).toBe('no facts recorded')
   })
 
   it('renders warnings after the facts', () => {
@@ -285,8 +285,8 @@ describe('renderMemoryList', () => {
     writeMemory(projectDir, 'project.md', 'lixo solto\n')
     const { report } = runMemoryList(makeCtx(projectDir, tmpDir()))
     const text = renderMemoryList(report)
-    expect(text).toContain('nenhum fato registrado')
-    expect(text).toContain('aviso:')
+    expect(text).toContain('no facts recorded')
+    expect(text).toContain('warning:')
   })
 })
 
@@ -309,7 +309,7 @@ describe('renderMemoryShow', () => {
   it('renders the not-found message with the requested id', () => {
     const { ctx } = populated()
     const { report } = runMemoryShow(ctx, 'deadbeef')
-    expect(renderMemoryShow(report)).toBe('fato deadbeef não encontrado')
+    expect(renderMemoryShow(report)).toBe('fact deadbeef not found')
   })
 })
 
@@ -379,7 +379,7 @@ describe('registerMemoryReadCommands', () => {
     expect(emitted[0]?.rendered).toContain(PROJECT_BODY)
 
     expect(await run(parent, ['memory', 'show', 'deadbeef'])).toBe(1)
-    expect(emitted[1]?.rendered).toBe('fato deadbeef não encontrado')
+    expect(emitted[1]?.rendered).toBe('fact deadbeef not found')
   })
 
   it('search forwards the query', async () => {

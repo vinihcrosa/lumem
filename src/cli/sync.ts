@@ -136,7 +136,7 @@ function preserveDrifted(drift: DriftEntry[], projectDir: string, lumemDir: stri
 export function renderSync(report: SyncReport): string {
   const lines: string[] = []
 
-  if (report.dryRun) lines.push('dry-run: nada foi escrito')
+  if (report.dryRun) lines.push('dry-run: nothing was written')
 
   if (report.drift.length > 0) {
     lines.push('drift:')
@@ -147,7 +147,7 @@ export function renderSync(report: SyncReport): string {
   }
 
   if (report.actions.length > 0) {
-    lines.push('ações:')
+    lines.push('actions:')
     for (const action of report.actions) {
       lines.push(`  ${action.type} ${action.artifactId} → ${action.destPath} (${action.reason})`)
     }
@@ -161,16 +161,16 @@ export function renderSync(report: SyncReport): string {
   }
   for (const entry of report.errors) {
     const scope = entry.artifactId === COMMAND_SCOPE ? '' : `${entry.artifactId}: `
-    lines.push(`erro: ${scope}${entry.message}`)
+    lines.push(`error: ${scope}${entry.message}`)
   }
 
   if (report.actions.some((action) => action.type === 'conflict')) {
     lines.push(
-      'conflito: arquivos editados localmente não foram tocados — rode `lumem sync --force` para sobrescrever (o conteúdo atual vai para .lumem/local/backups)',
+      'conflict: locally edited files were left untouched — run `lumem sync --force` to overwrite them (the current content goes to .lumem/local/backups)',
     )
   }
 
-  if (lines.length === 0) lines.push('tudo sincronizado')
+  if (lines.length === 0) lines.push('everything in sync')
   return lines.join('\n')
 }
 

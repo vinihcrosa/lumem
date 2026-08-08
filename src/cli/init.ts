@@ -183,23 +183,23 @@ export function renderInit(report: InitReport): string {
     lines.push(`+ ${entry}`)
   }
   for (const entry of report.skipped) {
-    lines.push(`= ${entry} (já existe)`)
+    lines.push(`= ${entry} (already exists)`)
   }
 
   for (const harness of report.harnesses) {
     if (!harness.detected) {
-      lines.push(`✖ ${harness.id} — não detectado`)
+      lines.push(`✖ ${harness.id} — not detected`)
       continue
     }
-    const mark = harness.selected ? 'configurado' : 'ignorado'
+    const mark = harness.selected ? 'configured' : 'skipped'
     lines.push(`✔ ${harness.id} (${harness.grade}) — ${mark}`)
   }
 
   for (const note of report.notes) {
-    lines.push(`aviso: ${note}`)
+    lines.push(`warning: ${note}`)
   }
 
-  if (lines.length === 0) lines.push('nada a fazer')
+  if (lines.length === 0) lines.push('nothing to do')
   return lines.join('\n')
 }
 

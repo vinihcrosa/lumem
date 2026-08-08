@@ -142,7 +142,7 @@ describe('renderDoctor', () => {
     const { report } = runDoctor(makeCtx({ env: { HOME: claudeHome, PATH: claudeBinDir } }))
     const text = renderDoctor(report)
     expect(text).toContain('✔ claude-code 2.1.230 (full)')
-    expect(text).toContain('✖ codex — não detectado')
+    expect(text).toContain('✖ codex — not detected')
   })
 
   it('renders warnings and fallbacks as indented lines', () => {
@@ -366,7 +366,7 @@ describe('runDoctor last failure', () => {
     })
 
     const text = renderDoctor(report)
-    expect(text).toContain('última falha:')
+    expect(text).toContain('last failure:')
     expect(text).toContain('patch inválido')
   })
 
@@ -400,7 +400,7 @@ describe('runDoctor last failure', () => {
 
     expect(report.lastFailure).toBeUndefined()
     expect(exitCode).toBe(0)
-    expect(renderDoctor(report)).not.toContain('última falha:')
+    expect(renderDoctor(report)).not.toContain('last failure:')
   })
 
   it('reports nothing when there is no log at all', () => {
@@ -421,7 +421,7 @@ describe('runDoctor version issues', () => {
     expect(report.versionIssues[0]).toContain('claude-code')
     expect(report.versionIssues[0]).toContain('1.0.0')
     expect(report.versionIssues[0]).toContain('2.1.224')
-    expect(renderDoctor(report)).toContain('versão abaixo do mínimo:')
+    expect(renderDoctor(report)).toContain('version below minimum:')
   })
 
   it('stays empty for a supported version', () => {
@@ -429,7 +429,7 @@ describe('runDoctor version issues', () => {
 
     expect(exitCode).toBe(0)
     expect(report.versionIssues).toEqual([])
-    expect(renderDoctor(report)).not.toContain('versão abaixo do mínimo:')
+    expect(renderDoctor(report)).not.toContain('version below minimum:')
   })
 })
 

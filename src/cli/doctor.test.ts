@@ -21,9 +21,18 @@ function writeExecutable(dir: string, name: string, stdout: string): string {
   return file
 }
 
+// An empty temp dir, never the repo root: dogfooding `lumem install` here would
+// otherwise give these tests a real lockfile to find drift in, and doctor now
+// exits 3 on drift.
+let emptyProject: string | undefined
+function projectlessDir(): string {
+  emptyProject ??= tmpDir()
+  return emptyProject
+}
+
 function makeCtx(overrides: Partial<CliContext> = {}): CliContext {
   return {
-    projectDir: process.cwd(),
+    projectDir: projectlessDir(),
     adaptersDir: realAdaptersDir,
     env: {},
     json: false,

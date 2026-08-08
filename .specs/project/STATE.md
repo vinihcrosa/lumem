@@ -43,6 +43,8 @@
 
 ## Deferred Ideas
 
+- `SecretHit` devia carregar `length`/`end` além de `index`. Sem isso, `redact` (T30) re-deriva o span do segredo por heurística de formato. Funciona e é testado, mas é fragilidade evitável num caminho de segurança — ao mexer em `secrets.ts`, adicionar o campo e apagar `spanEnd()`.
+
 - Um arquivo por fato (mitigação de conflito de merge em `project.md`) — pós-V1
 - Binário compilado se cold start do Node não fechar NFR-2 — avaliar após medição em M3
 

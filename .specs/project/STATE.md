@@ -77,3 +77,19 @@ The pattern that kept repeating: each piece passed in isolation, the contract be
 ## Preferences
 
 - Everything written in the repo is in English — code, comments, CLI output, specs, docs, commit messages. The author speaks Portuguese in conversation; that does not carry into the artifacts.
+
+## First real eval run (2026-08-08)
+
+`npm run eval` against the live model, 8 fixtures × 3 runs. Result: **7/8 pass**, schema 100%, secret leaks 0, hard gates clean.
+
+What the prompt already gets right — and it is the hardest part:
+- **Calibration.** `trivial-session` and `repo-duplication-bait` both returned an empty patch on all three runs. Writing nothing when there is nothing to write is the dominant failure mode of this kind of prompt, and it did not fail once.
+- Corrections keep their reason; the `recovery` signal became a pitfall fact; the contradiction produced a `replace` rather than a second `add`; the 66-signal noisy session produced 2 facts, not 66.
+
+The one failure, and why it is the prompt's fault:
+- `preference-signal` run 0 emitted `correction/global` where the fixture requires `preference/global`. Runs 1 and 2 got it right — 1-in-3 variance.
+- Two of the prompt's own type rules covered the same fact. A durable working habit that surfaced through a correction satisfies both "the user explicitly corrected the agent" and "true about this developer everywhere". The model was not guessing badly; the prompt had not decided.
+- Fixed by a tiebreaker: the signal type does not decide the fact type. Ask what the fact *is*, not how you learned it. Three worked examples added.
+- **Unverified.** Confirming the variance is gone needs another real run; mock replays fixed answers and cannot measure it.
+
+Cost signal: the prompt is ~16.8 KB per call (measured, `promptBytes` in the results file).

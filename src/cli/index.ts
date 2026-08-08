@@ -4,6 +4,7 @@ import { Command } from 'commander'
 import { type CliContext, resolveAdaptersDir } from './context'
 import { renderDoctor, runDoctor } from './doctor'
 import { registerInitCommand } from './init'
+import { registerInstallCommand } from './install'
 import { registerMemoryContextCommand } from './memory-context'
 import { registerMemoryReadCommands } from './memory-read'
 import { registerMemoryWriteCommands } from './memory-write'
@@ -55,6 +56,7 @@ program
   })
 
 registerInitCommand(program, buildContext, emit)
+registerInstallCommand(program, buildContext, emit)
 
 const memory = program.command('memory').description('Read and write durable memory')
 registerMemoryReadCommands(memory, buildContext, emit)

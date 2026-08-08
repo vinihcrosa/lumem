@@ -94,7 +94,7 @@ export function writeLock(lumemDir: string, lock: Lockfile): void {
  * Compare each lock entry against what is currently on disk, in lockfile order.
  *
  * - dest missing (or a broken symlink) → 'missing'
- * - content hash differs from the recorded hash → 'modified'
+ * - content hash differs from what install actually wrote → 'modified'
  * - a symlink install replaced by a regular file keeps content-based state
  *   ('ok' when the content still matches) but carries note 'replaced-by-file'
  */
@@ -121,7 +121,11 @@ export function detectDrift(lock: Lockfile): DriftEntry[] {
       }
     }
 
-    const state = sha256(content) === entry.hash ? ('ok' as const) : ('modified' as const)
+    // Compare against the bytes install wrote, which for a rendered artifact
+    // (hook-config) are not the source bytes. Using `hash` here reports every
+    // healthy hook-config as modified.
+    const installed = entry.contentHash ?? entry.hash
+    const state = sha256(content) === installed ? ('ok' as const) : ('modified' as const)
     if (entry.mode === 'symlink' && !stat.isSymbolicLink()) {
       return { ...base, state, note: 'replaced-by-file' as const }
     }

@@ -236,3 +236,34 @@ describe('detectDrift', () => {
     expect(detectDrift({ version: 1, entries: [] })).toEqual([])
   })
 })
+
+describe('detectDrift — rendered artifacts (regression)', () => {
+  it('reports a healthy rendered artifact as ok, not modified', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-drift-'))
+    const dest = path.join(dir, 'settings.json')
+    const source = '{"cmd":"node {{HOOK_BUNDLE}}"}'
+    const rendered = '{"cmd":"node /abs/lumem-hook.mjs"}'
+    fs.writeFileSync(dest, rendered)
+
+    // What install records: `hash` identifies the template version, while
+    // `contentHash` is what actually landed on disk.
+    const lock: Lockfile = {
+      version: 1,
+      entries: [
+        {
+          artifactId: 'hook-config:claude-code',
+          installedAt: '2026-08-07T00:00:00.000Z',
+          destPath: dest,
+          hash: sha256(source),
+          contentHash: sha256(rendered),
+          mode: 'copy',
+        },
+      ],
+    }
+
+    expect(detectDrift(lock)[0]?.state).toBe('ok')
+
+    fs.writeFileSync(dest, '{"cmd":"user edited this"}')
+    expect(detectDrift(lock)[0]?.state).toBe('modified')
+  })
+})

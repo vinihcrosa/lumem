@@ -92,7 +92,7 @@ T1,T41 ──→ T47 [P]
 **Verify**: `node dist/cli.js --version` imprime versão.
 **Commit**: `chore: scaffold TS/ESM, build multi-entry e gates`
 
-### T2: core/shared — fsx, log
+### T2: core/shared — fsx, log ✅
 **What**: `fsx.ts` (`atomicWrite` tmp+rename, `expandHome`, `sha256`, `readJsonSafe`), `log.ts` (append JSONL estruturado em `local/lumem.log`; rotação = stub com interface pronta).
 **Where**: `src/core/shared/{fsx,log}.ts` + testes
 **Depends on**: T1 · **Reuses**: node builtins · **Requirement**: OPS-09 (parcial)
@@ -102,7 +102,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(shared): fsx atômico e log estruturado`
 
-### T3: Schema do AdapterDescriptor + loader [P]
+### T3: Schema do AdapterDescriptor + loader [P] ✅
 **What**: zod schema completo (design §Data Models) + `loadDescriptors(dir)`; descritor inválido → erro nomeando campo, harness excluído.
 **Where**: `src/adapters/schema.ts`, `src/core/harness/load.ts` + testes
 **Depends on**: T1 · **Reuses**: — · **Requirement**: HARN-02
@@ -112,7 +112,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(harness): schema zod e loader de descritores`
 
-### T4: Descritores claude-code.json e codex.json [P]
+### T4: Descritores claude-code.json e codex.json [P] ✅
 **What**: os dois descritores com fatos verificados (design §0/§Data Models): Codex skills em `.agents/skills`, hooks `.codex/hooks.json`, minVersions 2.1.224/0.147.0, `injection[]`, `headless`.
 **Where**: `src/adapters/{claude-code,codex}.json` + teste de validação
 **Depends on**: T3 · **Reuses**: schema T3 · **Requirement**: HARN-01
@@ -121,7 +121,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit (via schema) · **Gate**: quick
 **Commit**: `feat(adapters): descritores claude-code e codex verificados`
 
-### T5: Engine de detecção [P]
+### T5: Engine de detecção [P] ✅
 **What**: `detect(descriptor)` — regras `dir`/`bin`/`file`, probe de versão via `versionArgs`; nunca lança por harness ausente.
 **Where**: `src/core/harness/detect.ts` + testes (fixtures em tmp, PATH fake)
 **Depends on**: T2, T3 · **Reuses**: fsx · **Requirement**: HARN-01
@@ -130,7 +130,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(harness): detecção declarativa dir/bin/file`
 
-### T6: Resolução de OperatingMode [P]
+### T6: Resolução de OperatingMode [P] ✅
 **What**: `resolveMode(descriptor, detection)` — capacidades → `grade` (`full|degraded|skill-only|unavailable`) + `fallbacks` declarados; versão < mínima ⇒ degrade explícito.
 **Where**: `src/core/harness/mode.ts` + testes
 **Depends on**: T3 · **Reuses**: — · **Requirement**: HARN-03
@@ -139,7 +139,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(harness): operating mode com degradação declarada`
 
-### T7: CLI esqueleto + doctor + status
+### T7: CLI esqueleto + doctor + status ✅
 **What**: programa commander, flags globais `--json`/`--dry-run`, exit codes (0/1/3); `lumem doctor` (harnesses, versões, capacidades, modo, fallbacks) e `lumem status` ("nada instalado" limpo).
 **Where**: `src/cli/{index,doctor,status}.ts` + testes integration
 **Depends on**: T4, T5, T6 · **Reuses**: harness engine · **Requirement**: CLI-05, CLI-06, CLI-11, HARN-04
@@ -152,7 +152,7 @@ T1,T41 ──→ T47 [P]
 
 ## Fase 1 — M1
 
-### T8: Assets stub [P]
+### T8: Assets stub [P] ✅
 **What**: `assets/` inicial: `skills/lumem-memory/SKILL.md` e `skills/lumem-consolidate/SKILL.md` (frontmatter válido + corpo mínimo), `agents/lumem-consolidator.md`, `harness/*/hooks.tmpl.json` (eventos do eventMap chamando `lumem-hook.mjs`).
 **Where**: `assets/**`
 **Depends on**: T1 · **Reuses**: eventMap dos descritores · **Requirement**: MEM-07, CONS-03/04, CONS-06 (stubs)
@@ -161,7 +161,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: none (dados; validados por T11/T33) · **Gate**: build
 **Commit**: `feat(assets): skills, agent e templates de hook iniciais`
 
-### T9: Blocos gerenciados [P]
+### T9: Blocos gerenciados [P] ✅
 **What**: `upsertManagedBlock`/`removeManagedBlock` com marcadores `<!-- lumem:start/end -->`; cria arquivo se ausente; conteúdo externo intocado byte a byte; respeita `maxBytes` truncando por prioridade.
 **Where**: `src/core/install/managed-block.ts` + golden tests
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: INST-05
@@ -170,7 +170,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(install): blocos gerenciados com marcadores`
 
-### T10: Backup timestampado [P]
+### T10: Backup timestampado [P] ✅
 **What**: `backupOnce(path)` → `.lumem/local/backups/<ts>/<relpath>`; idempotente (1º backup vence).
 **Where**: `src/core/install/backup.ts` + testes
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: INST-06
@@ -179,7 +179,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(install): backup único timestampado`
 
-### T11: Manifest [P]
+### T11: Manifest [P] ✅
 **What**: build do manifest a partir de `assets/` + `dist/` (id, kind, versão, hash sha256, dest por harness/escopo).
 **Where**: `src/core/install/manifest.ts` + testes
 **Depends on**: T2, T8 · **Reuses**: fsx.sha256 · **Requirement**: INST-01
@@ -188,7 +188,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(install): manifest de artefatos com hash`
 
-### T12: Lockfile + drift [P]
+### T12: Lockfile + drift [P] ✅
 **What**: read/write `lumem-lock.json`; `detectDrift(lock, disk)` por hash.
 **Where**: `src/core/install/lockfile.ts` + testes
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: INST-02, INST-04
@@ -197,7 +197,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(install): lockfile e detecção de drift`
 
-### T13: Planner puro
+### T13: Planner puro ✅
 **What**: `plan(manifest, lock, modes, opts)` — diff desejado × lock × disco ⇒ lista de ações (`create|update|skip|conflict`); zero I/O de escrita; é o que `--dry-run` imprime.
 **Where**: `src/core/install/plan.ts` + testes
 **Depends on**: T11, T12 · **Reuses**: manifest, lockfile · **Requirement**: INST-03
@@ -206,7 +206,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(install): planner idempotente puro`
 
-### T14: Apply
+### T14: Apply ✅
 **What**: executa plan: symlink/`--copy`, blocos gerenciados, backups, atualiza lockfile por ação; falha no meio deixa lockfile coerente com o aplicado.
 **Where**: `src/core/install/apply.ts` + testes integration (fake homes)
 **Depends on**: T9, T10, T13 · **Reuses**: T9/T10/T13 · **Requirement**: INST-07, OPS-06 (parcial)
@@ -263,7 +263,7 @@ T1,T41 ──→ T47 [P]
 
 ## Fase 2 — M2
 
-### T20: Scanner de segredos
+### T20: Scanner de segredos ✅
 **What**: `scanSecrets(text)` — regexes (AKIA, PEM, JWT, `KEY=` alta entropia ≥20 chars, tokens comuns) + Shannon entropy; corpus positivo/negativo.
 **Where**: `src/core/shared/secrets.ts` + testes
 **Depends on**: T2 · **Reuses**: — · **Requirement**: MEM-05
@@ -272,7 +272,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(shared): scanner de segredos regex+entropia`
 
-### T21: Memory store
+### T21: Memory store ✅
 **What**: parse/serialize de fatos (formato PRD §5.3 exato), parser tolerante (entrada malformada pulada+logada), id derivado `sha256[0:8]`, `writeStore` atômico como **choke point** com `scanSecrets` (recusa = erro tipado).
 **Where**: `src/core/memory/store.ts` + golden tests
 **Depends on**: T20 · **Reuses**: fsx, secrets · **Requirement**: MEM-01, MEM-02, MEM-05
@@ -281,7 +281,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(memory): store com proveniência e scrub no write`
 
-### T22: Orçamento de injeção [P]
+### T22: Orçamento de injeção [P] ✅
 **What**: `buildInjection(stores, budgetBytes)` — prioridade corrections recentes → project → preference; trunca por entrada inteira; nunca excede teto.
 **Where**: `src/core/memory/budget.ts` + testes
 **Depends on**: T21 · **Reuses**: store · **Requirement**: MEM-03
@@ -290,7 +290,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(memory): injeção com orçamento e prioridade`
 
-### T23: Soft limits + state.json [P]
+### T23: Soft limits + state.json [P] ✅
 **What**: `checkSoftLimits(store, config)` ⇒ `CompactionFlag[]` persistidos em `local/state.json`; leitura/escrita de `LocalState`.
 **Where**: `src/core/memory/limits.ts` + testes
 **Depends on**: T21 · **Reuses**: fsx · **Requirement**: MEM-04 (flags)
@@ -299,7 +299,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(memory): soft limits e flags de compactação`
 
-### T24: `lumem memory list|show|search` [P]
+### T24: `lumem memory list|show|search` [P] ✅
 **What**: leitura humana (ids derivados exibidos) + `--json`; search = substring case-insensitive sobre corpo.
 **Where**: `src/cli/memory-read.ts` + testes integration
 **Depends on**: T21, T22 · **Reuses**: store · **Requirement**: CLI-07, CLI-11
@@ -308,7 +308,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): memory list/show/search`
 
-### T25: `lumem memory add|edit|forget` [P]
+### T25: `lumem memory add|edit|forget` [P] ✅
 **What**: escrita manual (add com `--type/--scope/--conf`, src=`manual`), edit abre `$EDITOR` ou aceita `--body`, forget por id; tudo passa pelo choke point (segredo recusado com mensagem clara).
 **Where**: `src/cli/memory-write.ts` + testes integration
 **Depends on**: T21 · **Reuses**: store · **Requirement**: CLI-08
@@ -317,7 +317,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): memory add/edit/forget com scrub`
 
-### T26: `lumem memory context`
+### T26: `lumem memory context` ✅
 **What**: comando (oculto de help principal) que imprime o bloco de injeção — fonte única usada pela skill (M2) e pelo hook inject (M3).
 **Where**: `src/cli/memory-context.ts` + testes
 **Depends on**: T22 · **Reuses**: buildInjection · **Requirement**: MEM-03
@@ -326,7 +326,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): memory context para injeção`
 
-### T27: Skill lumem-memory final
+### T27: Skill lumem-memory final ✅
 **What**: SKILL.md real: contrato de leitura/escrita durante sessão, instrução de injeção para modo degradado ("rode `lumem memory context` e leia antes de agir"), gatilhos de escrita explícita.
 **Where**: `assets/skills/lumem-memory/SKILL.md`
 **Depends on**: T8, T26 · **Reuses**: — · **Requirement**: MEM-07
@@ -346,7 +346,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit + chaos-lite · **Gate**: quick + build
 **Commit**: `feat(hooks): entrypoint único fail-open bundlado`
 
-### T29: Diário de sessão [P]
+### T29: Diário de sessão [P] ✅
 **What**: `appendSignal(sessionsDir, sessionId, signal)` — JSONL `O_APPEND`, naming `<iso>.jsonl`, tipos `Signal` do design.
 **Where**: `src/core/capture/journal.ts` + testes
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: CAP-01
@@ -355,7 +355,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(capture): diário JSONL append-only`
 
-### T30: Heurísticas de correção + redação [P]
+### T30: Heurísticas de correção + redação [P] ✅
 **What**: `classifyPrompt(text, markers)` (markers do config) e `redact(text, maxLen=500)` com scrub de segredo antes de gravar no diário.
 **Where**: `src/core/capture/heuristics.ts` + testes
 **Depends on**: T20 · **Reuses**: secrets · **Requirement**: CAP-02, CAP-03
@@ -364,7 +364,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(capture): heurística de correção que só marca`
 
-### T31: Detecção de recovery
+### T31: Detecção de recovery ✅
 **What**: `detectRecovery(journalPath, newCmd)` — tail bounded do diário da própria sessão; falha anterior + sucesso agora ⇒ sinal `recovery`.
 **Where**: `src/core/capture/recovery.ts` + testes
 **Depends on**: T29 · **Reuses**: journal · **Requirement**: CAP-02
@@ -402,7 +402,7 @@ T1,T41 ──→ T47 [P]
 
 ## Fase 4 — M4
 
-### T35: Gate de consolidação [P]
+### T35: Gate de consolidação [P] ✅
 **What**: `checkGate(state, journalPath, config)` — 4 condições (≥N sinais, ≥N min, ≥N h desde última, sem lock); barato (conta linhas, lê timestamps).
 **Where**: `src/core/consolidate/gate.ts` + testes
 **Depends on**: T23, T29 · **Reuses**: state, journal · **Requirement**: CONS-01
@@ -411,7 +411,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(consolidate): gate de 4 condições`
 
-### T36: Lock com TTL [P]
+### T36: Lock com TTL [P] ✅
 **What**: `acquireLock(localDir, ttlMin=30)` — `O_CREAT|O_EXCL` com `{pid, startedAt}`; stale (> TTL) removido e readquirido; `releaseLock`.
 **Where**: `src/core/consolidate/lock.ts` + testes (contenção com 2 processos)
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: CONS-05
@@ -420,7 +420,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(consolidate): lock O_EXCL com stale TTL`
 
-### T37: Patch — schema + aplicação atômica [P]
+### T37: Patch — schema + aplicação atômica [P] ✅
 **What**: zod schema `ConsolidationPatch`; `applyPatch(patch, stores)` — entrada inválida/com segredo descartada individualmente + logada; falha estrutural ⇒ nada muda; escrita via choke point do store.
 **Where**: `src/core/consolidate/patch.ts` + testes (fixtures válida/inválida/segredo/contradição)
 **Depends on**: T21 · **Reuses**: store (T21) · **Requirement**: CONS-03, MEM-05, MEM-02
@@ -474,7 +474,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(consolidate): compactação disparada por soft limit`
 
-### T43: Agent lumem-consolidator final [P]
+### T43: Agent lumem-consolidator final [P] ✅
 **What**: definição do agente headless (modelo barato default, permissões mínimas, referência à skill de consolidação) nos formatos dos 2 harnesses.
 **Where**: `assets/agents/lumem-consolidator.md`
 **Depends on**: T8 · **Reuses**: — · **Requirement**: CONS-04

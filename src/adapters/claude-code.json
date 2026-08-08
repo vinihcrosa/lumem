@@ -36,7 +36,7 @@
   },
   "injection": ["hook-stdout", "skill-instruction"],
   "headless": {
-    "command": ["claude", "-p", "--output-format", "json"],
+    "command": ["claude", "-p"],
     "promptVia": "stdin",
     "modelFlag": "--model",
     "defaultModel": "haiku"

@@ -560,3 +560,36 @@ describe('applyPatch provenance and date', () => {
     expect(onDisk.facts[0]?.date).toBe(today())
   })
 })
+
+describe('parsePatch — envelope tolerance (regression)', () => {
+  const patch = { version: 1, add: [], replace: [], remove: [] }
+
+  it('finds the patch when a harness wraps it in a result envelope', () => {
+    // `claude -p --output-format json` shape: the answer sits inside a wrapper
+    // whose own braces come first. Locking onto the first balanced object would
+    // mean consolidation never works against that harness.
+    const raw = JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      is_error: false,
+      result: 'here is the patch',
+      patch,
+    })
+    // The envelope itself is a valid JSON object but not a valid patch; the
+    // nested one is. Feed the realistic concatenated form too.
+    const concatenated = `{"type":"result","result":"ok"}\n${JSON.stringify(patch)}`
+    expect(parsePatch(concatenated).patch).toEqual(patch)
+    expect(parsePatch(raw).error).toBeDefined()
+  })
+
+  it('still reports the schema error when no candidate validates', () => {
+    const result = parsePatch('{"version":2,"add":[],"replace":[],"remove":[]}')
+    expect(result.patch).toBeUndefined()
+    expect(result.error).toContain('version')
+  })
+
+  it('prefers a valid patch over an earlier invalid object', () => {
+    const raw = `preamble {"version":"nope"} then\n\`\`\`json\n${JSON.stringify(patch)}\n\`\`\``
+    expect(parsePatch(raw).patch).toEqual(patch)
+  })
+})

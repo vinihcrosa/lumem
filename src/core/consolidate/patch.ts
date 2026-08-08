@@ -84,32 +84,39 @@ function jsonCandidates(raw: string): string[] {
  * trailing chatter), then validate it. Errors name the offending field path.
  */
 export function parsePatch(raw: string): { patch?: ConsolidationPatch; error?: string } {
-  let value: unknown
   let jsonError: string | undefined
+  let schemaError: string | undefined
+
+  // Try EVERY candidate against the schema, not just the first one that parses:
+  // a harness may wrap the answer in an envelope (`claude -p --output-format
+  // json`), and the first balanced object would then be the envelope rather
+  // than the patch. Whichever candidate validates wins.
   for (const candidate of jsonCandidates(raw)) {
+    let value: unknown
     try {
       value = JSON.parse(candidate)
-      jsonError = undefined
-      break
     } catch (err) {
       jsonError ??= err instanceof Error ? err.message : String(err)
+      continue
     }
-  }
-  if (value === undefined) {
-    return { error: `invalid JSON: ${jsonError ?? 'no JSON object found in output'}` }
+
+    const result = consolidationPatchSchema.safeParse(value)
+    if (result.success) return { patch: result.data }
+
+    if (schemaError === undefined) {
+      const issue = result.error.issues[0]
+      const at = issue === undefined ? '' : issue.path.join('.')
+      schemaError =
+        issue === undefined
+          ? 'invalid patch'
+          : at === ''
+            ? `invalid patch: ${issue.message}`
+            : `invalid patch at ${at}: ${issue.message}`
+    }
   }
 
-  const result = consolidationPatchSchema.safeParse(value)
-  if (!result.success) {
-    const issue = result.error.issues[0]
-    if (issue === undefined) return { error: 'invalid patch' }
-    const at = issue.path.join('.')
-    return {
-      error:
-        at === '' ? `invalid patch: ${issue.message}` : `invalid patch at ${at}: ${issue.message}`,
-    }
-  }
-  return { patch: result.data }
+  if (schemaError !== undefined) return { error: schemaError }
+  return { error: `invalid JSON: ${jsonError ?? 'no JSON object found in output'}` }
 }
 
 export interface PatchReport {

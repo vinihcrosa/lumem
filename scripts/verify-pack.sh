@@ -83,14 +83,19 @@ TARBALL=""
 if PACKED=$(node -e '
   const fs = require("node:fs")
   const lines = fs.readFileSync(process.argv[1], "utf8").split("\n")
-  // npm may still print a notice ahead of the report; it pretty-prints the
-  // JSON, so the last line that is exactly "[" is where the array starts.
+  // npm may print a notice ahead of the report, and it pretty-prints the JSON,
+  // so the report starts at the last line that is exactly "[" or "{". The
+  // shape itself is version-dependent: npm <= 11 emits an array of entries,
+  // npm 12 emits an object keyed by package name.
   let start = -1
   for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].trim() === "[") { start = i; break }
+    const line = lines[i].trim()
+    if (line === "[" || line === "{") { start = i; break }
   }
-  if (start < 0) throw new Error("no JSON array in npm pack output")
-  const entry = JSON.parse(lines.slice(start).join("\n"))[0]
+  if (start < 0) throw new Error("no JSON report in npm pack output")
+  const report = JSON.parse(lines.slice(start).join("\n"))
+  const entries = Array.isArray(report) ? report : Object.values(report)
+  const entry = entries[0]
   if (!entry || typeof entry.filename !== "string") throw new Error("no filename in npm pack JSON")
   process.stdout.write(entry.filename)
 ' "$WORK/pack.out" 2>/dev/null); then

@@ -220,8 +220,15 @@ describe.skipIf(process.env.SKIP_PACK_TEST === '1')('npm pack --dry-run', () => 
       maxBuffer: 32 * 1024 * 1024,
     })
 
-    const parsed = JSON.parse(raw) as { files?: { path: string }[] }[]
-    const entry = parsed[0]
+    // The report's shape depends on the npm version: <= 11 emits an array of
+    // entries, 12 emits an object keyed by package name. The release workflow
+    // installs npm@latest (Trusted Publishing needs a recent one), so this test
+    // meets both.
+    const report: unknown = JSON.parse(raw)
+    const entries = (
+      Array.isArray(report) ? report : Object.values(report as Record<string, unknown>)
+    ) as { files?: { path: string }[] }[]
+    const entry = entries[0]
     expect(entry, raw).toBeDefined()
     const packed = (entry?.files ?? []).map((f) => f.path)
 

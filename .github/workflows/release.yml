@@ -36,8 +36,14 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Pin the floor, not the top. `npm@latest` is a moving target: npm 12
+      # changed the `pack --json` shape and requires a newer Node than this
+      # runner installs. `^11.5.1` is the documented OIDC minimum and runs on
+      # Node 22.
       - name: Use an npm that supports OIDC publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@^11.5.1
+
+      - run: npm --version
 
       - run: npm ci
 

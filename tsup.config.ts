@@ -6,7 +6,9 @@ export default defineConfig([
     format: 'esm',
     platform: 'node',
     target: 'node20',
-    clean: true,
+    // No `clean`: it deletes dist/ wholesale, and tests spawn these bundles as
+    // real processes. Overwriting in place leaves no window where they vanish.
+    clean: false,
     banner: { js: '#!/usr/bin/env node' },
   },
   {

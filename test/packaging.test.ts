@@ -17,17 +17,15 @@
 // `SKIP_PACK_TEST=1 vitest run` keeps layer 1 and drops layer 2.
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const packScript = path.join(repoRoot, 'scripts', 'verify-pack.sh')
 
-/** Generous: a cold `npm pack` (which rebuilds) plus an npm install. */
+/** Generous: a build, a pack, and an npm install of the tarball. */
 const PACK_TIMEOUT_MS = 600_000
 
 interface PackageJson {
@@ -84,6 +82,17 @@ const MUST_NOT_PUBLISH = [
 ]
 
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Nothing here builds: `test/global-setup.ts` produces the bundles once, before
+// any suite starts. This only confirms they are there, so a misconfigured run
+// says so plainly instead of surfacing as a tarball missing its bundles.
+beforeAll(() => {
+  for (const relPath of RUNTIME_REQUIRED.filter((p) => p.startsWith('dist/'))) {
+    const file = path.join(repoRoot, relPath)
+    expect(fs.existsSync(file), `bundle not built: ${file}`).toBe(true)
+    expect(fs.statSync(file).size, `bundle is empty: ${file}`).toBeGreaterThan(0)
+  }
+})
 
 /**
  * Does an npm `files` whitelist cover `relPath`? An entry matches the path
@@ -177,69 +186,18 @@ describe('package.json files whitelist', () => {
 // layer 2 — the real thing
 // ---------------------------------------------------------------------------
 
-/**
- * The build mutex the M5 suites share. `npm pack` runs `prepack`, which runs
- * `tsup --clean` against the very `dist/` the sibling suites spawn from, so the
- * pack takes the same lock they take around their builds. It does not make the
- * repo fully reentrant — nothing short of serialising the files would — but it
- * removes the one collision that is guaranteed to corrupt output: two builds
- * cleaning and writing `dist/` at the same time.
- */
-const buildLock = path.join(
-  os.tmpdir(),
-  `lumem-build-${createHash('sha1').update(repoRoot).digest('hex').slice(0, 10)}.lock`,
-)
-/** A lock older than this is a crashed run's leftover, not a live build. */
-const STALE_LOCK_MS = 10 * 60_000
-
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
-}
-
-function withBuildLock<T>(fn: () => T): T {
-  try {
-    if (Date.now() - fs.statSync(buildLock).mtimeMs > STALE_LOCK_MS) {
-      fs.rmSync(buildLock, { recursive: true, force: true })
-    }
-  } catch {
-    // no lock yet: nothing to reclaim
-  }
-
-  const deadline = Date.now() + PACK_TIMEOUT_MS / 2
-  let held = false
-  while (Date.now() < deadline) {
-    try {
-      fs.mkdirSync(buildLock)
-      held = true
-      break
-    } catch {
-      sleepSync(250)
-    }
-  }
-
-  try {
-    return fn()
-  } finally {
-    if (held) fs.rmSync(buildLock, { recursive: true, force: true })
-  }
-}
-
 describe.skipIf(process.env.SKIP_PACK_TEST === '1')('verify-pack.sh', () => {
   it(
     'packs, installs the tarball and drives the installed binary end to end',
     () => {
-      // A stale build lock left by a killed run would otherwise be inherited by
-      // the sibling suites; make sure the script's npm pack owns dist/ alone.
-      const result = withBuildLock(() =>
-        spawnSync('sh', [packScript], {
-          cwd: repoRoot,
-          encoding: 'utf8',
-          // Below the vitest timeout so the script's own output survives to be
-          // reported, instead of vitest killing the worker with nothing to show.
-          timeout: PACK_TIMEOUT_MS - 30_000,
-          maxBuffer: 32 * 1024 * 1024,
-        }),
-      )
+      const result = spawnSync('sh', [packScript], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        // Below the vitest timeout so the script's own output survives to be
+        // reported, instead of vitest killing the worker with nothing to show.
+        timeout: PACK_TIMEOUT_MS - 30_000,
+        maxBuffer: 32 * 1024 * 1024,
+      })
 
       const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
       expect(result.status, output).toBe(0)

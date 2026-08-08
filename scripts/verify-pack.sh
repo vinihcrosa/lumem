@@ -4,8 +4,11 @@
 # Proves that `npx lumem` works from a clean machine, by doing exactly what npm
 # would do and nothing else:
 #
-#   1. `npm pack` the real repo (prepack rebuilds dist/, so the tarball always
-#      carries fresh bundles).
+#   1. Build, then `npm pack --ignore-scripts` the real repo. The build is
+#      explicit rather than left to `prepack`, because this script runs from a
+#      test suite whose siblings are spawning `dist/` at that very moment: an
+#      unannounced lifecycle rebuild mid-run is a write they can trip over.
+#      Building here keeps the tarball's bundles fresh with no race.
 #   2. Assert the tarball CONTAINS everything the install path reads at runtime
 #      — the three bundles, the adapter descriptors, the assets — and OMITS
 #      everything else (sources, tests, specs, scripts).
@@ -56,10 +59,19 @@ head2 "npm pack"
 PACK_DIR="$WORK/pack"
 mkdir -p "$PACK_DIR"
 
-# prepack runs `npm run build`, whose output lands on stdout next to the JSON;
-# the tarball name is read back from the (empty, freshly made) destination dir
-# whenever that noise makes the JSON unparseable.
-if ! (cd "$REPO_ROOT" && npm pack --json --pack-destination "$PACK_DIR") \
+# Build explicitly, so the tarball carries fresh bundles without `npm pack`
+# firing `prepack` underneath sibling suites that are spawning dist/.
+if ! (cd "$REPO_ROOT" && npm run build) >"$WORK/build.out" 2>&1; then
+  say "npm run build failed:"
+  cat "$WORK/build.out" >&2
+  exit 1
+fi
+ok "npm run build produced fresh bundles"
+
+# `--ignore-scripts` keeps the lifecycle out of it, so stdout carries the pack
+# report alone; the tarball name is still read back from the (empty, freshly
+# made) destination dir whenever npm prints anything that breaks the JSON.
+if ! (cd "$REPO_ROOT" && npm pack --json --ignore-scripts --pack-destination "$PACK_DIR") \
   >"$WORK/pack.out" 2>"$WORK/pack.err"; then
   say "npm pack failed:"
   cat "$WORK/pack.err" >&2
@@ -71,8 +83,8 @@ TARBALL=""
 if PACKED=$(node -e '
   const fs = require("node:fs")
   const lines = fs.readFileSync(process.argv[1], "utf8").split("\n")
-  // The build noise shares stdout with the report; npm pretty-prints the JSON,
-  // so the last line that is exactly "[" is where the array starts.
+  // npm may still print a notice ahead of the report; it pretty-prints the
+  // JSON, so the last line that is exactly "[" is where the array starts.
   let start = -1
   for (let i = lines.length - 1; i >= 0; i--) {
     if (lines[i].trim() === "[") { start = i; break }
@@ -104,11 +116,17 @@ fi
 
 say "tarball: $TARBALL ($(wc -c <"$TARBALL" | tr -d ' ') bytes)"
 
-# The tarball is only trustworthy if prepack rebuilt the bundles it carries.
-if grep -q 'prepack' "$WORK/pack.out" "$WORK/pack.err"; then
-  ok "prepack ran, so the bundles in the tarball are freshly built"
+# The bundles above are fresh because this script built them. `prepack` is what
+# guarantees the same for a publish nobody ran this script before, so it must
+# stay configured — asserted statically, since the pack above skips scripts.
+if node -e '
+  const fs = require("node:fs")
+  const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+  if (pkg.scripts?.prepack !== "npm run build") throw new Error("prepack is not `npm run build`")
+' "$REPO_ROOT/package.json" 2>/dev/null; then
+  ok "prepack is wired to npm run build, so a plain publish also rebuilds"
 else
-  bad "prepack did not run — the tarball may carry stale bundles"
+  bad "prepack is not wired to npm run build — a publish may carry stale bundles"
 fi
 
 # ---------------------------------------------------------------------------

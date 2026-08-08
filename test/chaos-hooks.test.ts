@@ -11,8 +11,7 @@
 // them may exceed the `inject` deadline in wall clock, because a hook that
 // HANGS is the failure mode the user feels most.
 
-import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -22,7 +21,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const bundlePath = path.join(repoRoot, 'dist', 'lumem-hook.mjs')
 
-const BUILD_TIMEOUT_MS = 180_000
 /** A hung hook must fail the suite, not the run: well above any honest case. */
 const SPAWN_TIMEOUT_MS = 20_000
 /** `EVENT_DEADLINES_MS.inject` — the largest budget any event may spend. */
@@ -38,70 +36,17 @@ const FACT_LINE = '- [2026-08-01] usa pnpm, nunca npm'
 const IS_ROOT = process.getuid?.() === 0
 
 // ---------------------------------------------------------------------------
-// build (shared, once)
+// the bundle, built once by test/global-setup.ts
 // ---------------------------------------------------------------------------
 
-const buildLock = path.join(
-  os.tmpdir(),
-  `lumem-build-${createHash('sha1').update(repoRoot).digest('hex').slice(0, 10)}.lock`,
-)
-/** A lock older than this is a crashed run's leftover, not a live build. */
-const STALE_LOCK_MS = 10 * 60_000
-
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
-}
-
-/**
- * Build `dist/` once per vitest run. Both M5 suites need the real artifacts and
- * vitest runs test files in parallel, so a bare `npm run build` in each would
- * race `tsup --clean` against a spawn of the very file it just deleted. The
- * lock directory is the mutex; the loser waits for it to disappear.
- */
-function buildDistOnce(artifacts: string[]): void {
-  try {
-    if (Date.now() - fs.statSync(buildLock).mtimeMs > STALE_LOCK_MS) {
-      fs.rmSync(buildLock, { recursive: true, force: true })
-    }
-  } catch {
-    // no lock yet: nothing to reclaim
-  }
-
-  const deadline = Date.now() + BUILD_TIMEOUT_MS
-  while (Date.now() < deadline) {
-    let held = true
-    try {
-      fs.mkdirSync(buildLock)
-    } catch {
-      held = false
-    }
-
-    if (!held) {
-      sleepSync(250)
-      if (fs.existsSync(buildLock)) continue
-      break
-    }
-
-    try {
-      execFileSync('npm', ['run', 'build'], {
-        cwd: repoRoot,
-        stdio: 'ignore',
-        timeout: BUILD_TIMEOUT_MS,
-      })
-      break
-    } finally {
-      fs.rmSync(buildLock, { recursive: true, force: true })
-    }
-  }
-
-  for (const artifact of artifacts) {
-    if (!fs.existsSync(artifact)) throw new Error(`build did not produce ${artifact}`)
-  }
-}
-
+// Nothing here builds: `test/global-setup.ts` produces the bundles once, before
+// any suite starts. This only confirms the one this file spawns is there, so a
+// misconfigured run says so plainly instead of surfacing as a puzzling
+// module-not-found from every spawn below.
 beforeAll(() => {
-  buildDistOnce([bundlePath])
-}, BUILD_TIMEOUT_MS)
+  expect(fs.existsSync(bundlePath), `bundle not built: ${bundlePath}`).toBe(true)
+  expect(fs.statSync(bundlePath).size, `bundle is empty: ${bundlePath}`).toBeGreaterThan(0)
+})
 
 // ---------------------------------------------------------------------------
 // running the real bundle
@@ -124,71 +69,42 @@ function record(label: string, ms: number): void {
   latencies.push({ label, ms })
 }
 
-/**
- * `src/hooks/main.test.ts` runs its own `npm run build` with no lock, and
- * tsup's `clean` deletes `dist/` before rewriting it — so during a FULL suite
- * run the bundle can vanish between two of our spawns. The signature is
- * unmistakable (Node's module loader, before a line of hook code runs), and
- * the honest answer is to wait for the rebuild and spawn again. Never to
- * soften the assertion: the hook itself can only ever exit 0.
- */
-function vanishedMidRun(run: HookRun): boolean {
-  return (
-    run.status !== 0 && run.stderr.includes('Cannot find module') && run.stderr.includes(bundlePath)
-  )
-}
-
-const MISSING_ARTIFACT_RETRIES = 4
-
-function retrying(spawnOnce: () => HookRun): HookRun {
-  let run = spawnOnce()
-  for (let attempt = 0; attempt < MISSING_ARTIFACT_RETRIES && vanishedMidRun(run); attempt++) {
-    sleepSync(500)
-    run = spawnOnce()
-  }
-  return run
-}
-
 function runHook(args: string[], input: string, env?: NodeJS.ProcessEnv): HookRun {
-  return retrying(() => {
-    const started = Date.now()
-    const result = spawnSync(process.execPath, [bundlePath, ...args], {
-      input,
-      encoding: 'utf8',
-      timeout: SPAWN_TIMEOUT_MS,
-      env: { ...process.env, ...env },
-    })
-    const ms = Date.now() - started
-    record(args.join(' ') || '(no args)', ms)
-
-    const code = (result.error as NodeJS.ErrnoException | undefined)?.code
-    return {
-      status: result.status,
-      stdout: result.stdout ?? '',
-      stderr: result.stderr ?? '',
-      ms,
-      ...(code === undefined ? {} : { spawnErrorCode: code }),
-    }
+  const started = Date.now()
+  const result = spawnSync(process.execPath, [bundlePath, ...args], {
+    input,
+    encoding: 'utf8',
+    timeout: SPAWN_TIMEOUT_MS,
+    env: { ...process.env, ...env },
   })
+  const ms = Date.now() - started
+  record(args.join(' ') || '(no args)', ms)
+
+  const code = (result.error as NodeJS.ErrnoException | undefined)?.code
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    ms,
+    ...(code === undefined ? {} : { spawnErrorCode: code }),
+  }
 }
 
 /** Same contract, but the hook is handed no stdin pipe at all. */
 function runHookWithoutStdin(args: string[], env?: NodeJS.ProcessEnv): HookRun {
-  return retrying(() => {
-    const started = Date.now()
-    const result = spawnSync(process.execPath, [bundlePath, ...args], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      timeout: SPAWN_TIMEOUT_MS,
-      env: { ...process.env, ...env },
-    })
-    const ms = Date.now() - started
-    record(`${args.join(' ')} (no stdin)`, ms)
-    return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '', ms }
+  const started = Date.now()
+  const result = spawnSync(process.execPath, [bundlePath, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    timeout: SPAWN_TIMEOUT_MS,
+    env: { ...process.env, ...env },
   })
+  const ms = Date.now() - started
+  record(`${args.join(' ')} (no stdin)`, ms)
+  return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '', ms }
 }
 
-function spawnHookAsync(args: string[], input: string): Promise<HookRun> {
+function runHookAsync(args: string[], input: string): Promise<HookRun> {
   return new Promise((resolve) => {
     const started = Date.now()
     const child = spawn(process.execPath, [bundlePath, ...args], {
@@ -211,16 +127,6 @@ function spawnHookAsync(args: string[], input: string): Promise<HookRun> {
     child.stdin.on('error', () => undefined)
     child.stdin.end(input)
   })
-}
-
-/** A spawn that never reached the hook appended nothing, so a retry is exact. */
-async function runHookAsync(args: string[], input: string): Promise<HookRun> {
-  let run = await spawnHookAsync(args, input)
-  for (let attempt = 0; attempt < MISSING_ARTIFACT_RETRIES && vanishedMidRun(run); attempt++) {
-    sleepSync(500)
-    run = await spawnHookAsync(args, input)
-  }
-  return run
 }
 
 /**

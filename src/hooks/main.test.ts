@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { builtinModules } from 'node:module'
 import os from 'node:os'
@@ -9,8 +9,6 @@ import { beforeAll, describe, expect, it } from 'vitest'
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 const hooksDir = fileURLToPath(new URL('.', import.meta.url))
 const bundlePath = path.join(repoRoot, 'dist', 'lumem-hook.mjs')
-
-const BUILD_TIMEOUT_MS = 120_000
 
 function tmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-hook-'))
@@ -74,9 +72,13 @@ function bundleSpecifiers(code: string): string[] {
   return specs
 }
 
+// `test/global-setup.ts` builds the bundles once, before any suite starts. This
+// only confirms the one this file spawns is there, so a misconfigured run says
+// so plainly instead of surfacing as a puzzling module-not-found from a spawn.
 beforeAll(() => {
-  execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'ignore' })
-}, BUILD_TIMEOUT_MS)
+  expect(fs.existsSync(bundlePath), `bundle not built: ${bundlePath}`).toBe(true)
+  expect(fs.statSync(bundlePath).size, `bundle is empty: ${bundlePath}`).toBeGreaterThan(0)
+})
 
 describe('lumem-hook bundle', () => {
   it('is produced by the build', () => {

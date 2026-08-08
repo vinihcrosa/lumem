@@ -69,13 +69,27 @@ function record(label: string, ms: number): void {
   latencies.push({ label, ms })
 }
 
+/**
+ * An empty home for every spawn.
+ *
+ * The hook reads global memory from `$HOME/.lumem`, so inheriting the real home
+ * makes these assertions depend on whether the person running the suite happens
+ * to use lumem themselves — the maintainers, exactly. Injecting an empty home
+ * keeps the chaos cases measuring the hook instead of the machine.
+ */
+const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-chaos-home-'))
+
+function spawnEnv(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { ...process.env, HOME: isolatedHome, ...env }
+}
+
 function runHook(args: string[], input: string, env?: NodeJS.ProcessEnv): HookRun {
   const started = Date.now()
   const result = spawnSync(process.execPath, [bundlePath, ...args], {
     input,
     encoding: 'utf8',
     timeout: SPAWN_TIMEOUT_MS,
-    env: { ...process.env, ...env },
+    env: spawnEnv(env),
   })
   const ms = Date.now() - started
   record(args.join(' ') || '(no args)', ms)
@@ -97,7 +111,7 @@ function runHookWithoutStdin(args: string[], env?: NodeJS.ProcessEnv): HookRun {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: SPAWN_TIMEOUT_MS,
-    env: { ...process.env, ...env },
+    env: spawnEnv(env),
   })
   const ms = Date.now() - started
   record(`${args.join(' ')} (no stdin)`, ms)

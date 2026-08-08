@@ -27,7 +27,7 @@
 
 ## Current state (2026-08-08)
 
-**48/48 tasks, M0–M5 complete.** 62 commits, 1052 tests across 43 files, `npm run verify` green on three consecutive runs.
+**48/48 tasks, M0–M5 complete**, plus the eval harness and dogfooding. 68 commits, 1128 tests across 46 files, `npm run verify` green on three consecutive runs. lumem is installed in this repo and running on itself.
 
 Verified against the real binary, not only in tests:
 - `doctor` identifies both installed harnesses with grade and fallbacks
@@ -55,7 +55,7 @@ The pattern that kept repeating: each piece passed in isolation, the contract be
 
 ## Real gaps before production use
 
-- **No real agent session has exercised the full loop yet.** The whole flow was validated with a mocked LLM; consolidation has never run against an actual model. That is the next step and the one that validates the metric that matters (>60% useful facts).
+- **Consolidation has now run against a real model** — see "First real eval run" below. What is still missing is the loop end to end *in a live session*: a `SessionEnd` hook firing the detached runner on a journal the agent produced by itself, rather than the eval harness driving it. lumem is installed in this repo, so that happens on its own; the thing to watch is whether facts show up unprompted and whether they survive review (>60%).
 - The Codex minimum sits at 0.147.0 because it is the current release, not because it is the oldest compatible one — see open decision #5.
 
 ## Todos

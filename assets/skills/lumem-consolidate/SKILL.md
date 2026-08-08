@@ -98,6 +98,14 @@ Read it the other way round when you are unsure which type to use:
 - Something true about **this developer** everywhere — style, tone, tolerances → `preference` / `global`.
 - Something the user **explicitly corrected the agent about** → `correction`, scoped `project` when it only applies here, `global` when it would apply in any repo.
 
+**Tiebreaker — the signal is not the type.** A `correction` signal tells you the user pushed back; it does not tell you what kind of fact that produces. Ask what the fact *is*, not how you came to learn it:
+
+- "Don't use an ORM in this repo" — learned from a correction, but it is a rule about **this repo** → `project` / `project`.
+- "Always show me the diff before asking me to approve" — learned from a correction, but it is a standing rule about **how this developer works**, true in any repo → `preference` / `global`.
+- "You keep suggesting `npm` here, we use `pnpm`" — a repo convention the agent got wrong → `correction` / `project`.
+
+Reach for `correction` when what matters is *the agent's mistake in context*. Reach for `preference` when what matters is *a durable habit of the person*, even if a correction is how it surfaced.
+
 ### How each operation behaves
 
 - **`add`** — dropped if the type/scope pair is illegal, or if a fact with an identical body already exists. Do not re-add what the current-memory block already contains.

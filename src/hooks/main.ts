@@ -7,12 +7,12 @@
 //   1. ALWAYS exit 0 — exception, timeout, malformed stdin, unwritable disk.
 //   2. ZERO external dependencies — `node:` builtins and dependency-free core
 //      modules only, so the bundle stays one small cold-start-friendly file.
-// Real event handlers land in T32; the table below is intentionally empty and
-// an unregistered event resolves to '' harmlessly.
+// The handler table comes from `./handlers`, which obeys the same two rules.
 
 import fs from 'node:fs'
 import path from 'node:path'
 import { appendLog } from '../core/shared/log'
+import { handlers as realHandlers } from './handlers'
 import {
   EVENT_DEADLINES_MS,
   type HookHandlers,
@@ -28,8 +28,8 @@ const MAX_STDIN_BYTES = 1024 * 1024
 /** Bounded retries for a stdout pipe that is momentarily full. */
 const MAX_WRITE_RETRIES = 1000
 
-/** Event handlers (T32). Empty for now — every event resolves to ''. */
-const handlers: HookHandlers = {}
+/** Event handlers (T32); an unregistered event still resolves to '' harmlessly. */
+const handlers: HookHandlers = realHandlers
 
 // Last line of defence: even a failure outside the promise chain exits 0.
 process.on('uncaughtException', () => process.exit(0))

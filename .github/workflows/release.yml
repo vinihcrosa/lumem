@@ -24,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Node 22 and a current npm are what Trusted Publishing needs (npm
       # >= 11.5.1, Node >= 22.14). Node 22 still ships npm 10.x, so the upgrade
       # is explicit rather than assumed. The token path works on any version;
       # this keeps both open.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm

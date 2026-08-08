@@ -19,7 +19,7 @@
 2. **Memória de projeto commitada?** Assumido: **sim** (default do PRD). Reverter para gitignored+opt-in só se PRs ficarem ruidosos.
 3. **Runtime da consolidação.** Assumido: harness em uso (`claude -p` / `codex exec`) com modelo barato por padrão, configurável em `lumem.config.json`. Evita credencial extra; custo controlado pelo gate.
 4. **Dois harnesses no mesmo repo.** Assumido: **memória compartilhada** (mesmo projeto, mesmo conhecimento). Segregação só se surgir conflito real.
-5. **Versões mínimas de Claude Code e Codex.** Proposta concreta do design (2026-08-07): **Claude Code ≥ 2.1.224, Codex ≥ 0.147.0** (versões estáveis na data da verificação). Confirmar e gravar em `lumem.config.json` no M0.
+5. **Versões mínimas de Claude Code e Codex.** Congeladas nos descritores: Claude Code ≥ 2.1.224, Codex ≥ 0.147.0 — escolhidas por serem o release estável na data da verificação, **não** por serem a versão mais antiga compatível. Consequência observada em smoke: a máquina do autor roda Codex 0.144.6, então `doctor` sai 3 com aviso de incompatibilidade (comportamento correto do design, mas ruidoso se 0.144.6 já suportar o que usamos). **Pendente:** verificar em qual versão hooks viraram estáveis e `.agents/skills` passou a ser o diretório de skills; baixar o mínimo até lá. Não chutar — verificar contra o changelog do `openai/codex`.
 
 ## Blockers
 

@@ -9,6 +9,7 @@ import { registerMemoryContextCommand } from './memory-context'
 import { registerMemoryReadCommands } from './memory-read'
 import { registerMemoryWriteCommands } from './memory-write'
 import { renderStatus, runStatus } from './status'
+import { registerSyncCommand } from './sync'
 import { registerUninstallCommand } from './uninstall'
 
 const pkg = JSON.parse(
@@ -58,6 +59,7 @@ program
 
 registerInitCommand(program, buildContext, emit)
 registerInstallCommand(program, buildContext, emit)
+registerSyncCommand(program, buildContext, emit)
 registerUninstallCommand(program, buildContext, emit)
 
 const memory = program.command('memory').description('Read and write durable memory')

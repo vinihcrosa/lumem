@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { type CliContext, resolveAdaptersDir } from './context'
 import { renderDoctor, runDoctor } from './doctor'
+import { registerInitCommand } from './init'
 import { registerMemoryContextCommand } from './memory-context'
 import { registerMemoryReadCommands } from './memory-read'
 import { registerMemoryWriteCommands } from './memory-write'
@@ -52,6 +53,8 @@ program
     emit(ctx.json, report, renderStatus(report))
     process.exitCode = exitCode
   })
+
+registerInitCommand(program, buildContext, emit)
 
 const memory = program.command('memory').description('Read and write durable memory')
 registerMemoryReadCommands(memory, buildContext, emit)

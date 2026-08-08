@@ -4,18 +4,22 @@
 // `dist/lumem-hook.mjs` and runs on every session event, so it may import ONLY
 // `node:` builtins and dependency-free core modules. That is why the config is
 // read here with a plain `JSON.parse` instead of `core/config` — the latter
-// links zod, which must never reach this bundle.
+// links zod, which must never reach this bundle. Same reason `end` imports
+// `consolidate/gate` (whose whole import chain is zod-free) and never
+// `consolidate/run`.
 //
 // Every handler fails open: a missing field, a wrong type or an unwritable disk
 // resolves to "do nothing, quietly". `runHook` still catches whatever escapes,
 // but escaping is meant to be the exception, not the mechanism.
 
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { correctionSignal, redact } from '../core/capture/heuristics'
 import { type Signal, appendSignal, sessionFileName } from '../core/capture/journal'
 import { detectRecovery } from '../core/capture/recovery'
+import { type GateConfig, checkGate } from '../core/consolidate/gate'
 import { buildInjection } from '../core/memory/budget'
 import {
   type MemoryFile,
@@ -26,16 +30,34 @@ import {
 } from '../core/memory/store'
 import { type HookHandlers, type HookInput, resolveProjectDir } from './runtime'
 
+/**
+ * The `node:child_process` spawn surface the runner launch needs, narrowed to
+ * what is actually used so a test double is a three-line function.
+ */
+export type SpawnFn = (
+  command: string,
+  args: readonly string[],
+  options: { detached: boolean; stdio: 'ignore' },
+) => { unref: () => void }
+
 /** Ambient state the handlers depend on, injected so tests never touch the real env or clock. */
 export interface HandlerDeps {
   env: NodeJS.ProcessEnv
   now: () => Date
+  /** Injected so tests observe the runner launch without starting a process. */
+  spawn: SpawnFn
 }
 
 /** PRD §5.4: one injected block never exceeds 4 KB unless the config says otherwise. */
 const DEFAULT_INJECTION_BYTES = 4096
 
 const CONFIG_FILE_NAME = 'lumem.config.json'
+
+/** Where `lumem install` puts the consolidation runner, relative to `.lumem`. */
+const RUNNER_REL_PATH = ['bin', 'lumem-runner.mjs']
+
+/** Gate thresholds a project config may override; anything else is ignored. */
+const GATE_KEYS = ['minSignals', 'minDurationMin', 'minHoursBetween', 'lockTtlMin'] as const
 
 /** Tools that touch a file even when the path does not arrive as `file_path`. */
 const FILE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
@@ -85,6 +107,14 @@ function isDirectory(dir: string): boolean {
   }
 }
 
+function isFile(file: string): boolean {
+  try {
+    return fs.statSync(file).isFile()
+  } catch {
+    return false
+  }
+}
+
 function nowIso(deps: HandlerDeps): string {
   try {
     return deps.now().toISOString()
@@ -126,21 +156,40 @@ function sessionSignal(ctx: HookContext, harness: string, ev: 'start' | 'end'): 
 }
 
 /**
- * `budgets.injectionBytes` from `<lumemDir>/lumem.config.json`, read with a
- * plain `JSON.parse`: the validated reader lives in `core/config`, which pulls
- * zod. A missing, unreadable, malformed or implausible value falls back to the
- * PRD default rather than failing the injection.
+ * `<lumemDir>/lumem.config.json` as a plain object, read with a plain
+ * `JSON.parse`: the validated reader lives in `core/config`, which pulls zod.
+ * A missing, unreadable or malformed file reads as `{}`, and every caller
+ * falls back to its own default from there.
  */
-function injectionBudget(lumemDir: string): number {
+function readRawConfig(lumemDir: string): Record<string, unknown> {
   try {
     const file = path.join(lumemDir, CONFIG_FILE_NAME)
-    const parsed: unknown = JSON.parse(fs.readFileSync(file, 'utf8'))
-    const value = num(rec(rec(parsed).budgets).injectionBytes)
-    if (value !== undefined && value > 0) return value
+    return rec(JSON.parse(fs.readFileSync(file, 'utf8')))
   } catch {
-    // no config yet, unreadable, or not JSON: the default is the contract
+    // no config yet, unreadable, or not JSON: the defaults are the contract
+    return {}
   }
-  return DEFAULT_INJECTION_BYTES
+}
+
+/** `budgets.injectionBytes`, or the PRD default when it is absent or implausible. */
+function injectionBudget(lumemDir: string): number {
+  const value = num(rec(rec(readRawConfig(lumemDir)).budgets).injectionBytes)
+  return value !== undefined && value > 0 ? value : DEFAULT_INJECTION_BYTES
+}
+
+/**
+ * The project's `gate` overrides. Only finite numbers are forwarded; `checkGate`
+ * fills every remaining threshold from `DEFAULT_GATE_CONFIG`. Reading them
+ * matters: a project that loosened its thresholds must still get a runner.
+ */
+function gateOverrides(lumemDir: string): Partial<GateConfig> {
+  const raw = rec(rec(readRawConfig(lumemDir)).gate)
+  const overrides: Partial<GateConfig> = {}
+  for (const key of GATE_KEYS) {
+    const value = num(raw[key])
+    if (value !== undefined) overrides[key] = value
+  }
+  return overrides
 }
 
 function globalLumemDir(deps: HandlerDeps): string {
@@ -237,14 +286,58 @@ function captureTool(input: HookInput, deps: HandlerDeps): void {
   appendSignal(ctx.sessionsDir, ctx.sessionId, { t: 'cmd', ts: ctx.ts, cmd, exit })
 }
 
-/** SessionEnd: close the journal for this session. */
+/**
+ * Hand this session to the detached consolidation runner — and never wait for
+ * it. PRD §6: SessionEnd may not delay the user's session, so the child is
+ * spawned `detached` with no stdio and immediately `unref`ed, which lets this
+ * process exit while the runner keeps going.
+ *
+ * The gate check here is only a cheap pre-filter that avoids paying for a node
+ * cold start we know would refuse: the runner re-checks it authoritatively,
+ * because minutes may pass before it actually starts and another runner may
+ * have won the race by then.
+ */
+function spawnRunner(ctx: HookContext, harnessId: string, deps: HandlerDeps): void {
+  try {
+    // No bundle means a skill-only install: nothing to spawn, and one statSync
+    // is cheaper than re-reading the journal to find that out afterwards.
+    const runnerPath = path.join(ctx.lumemDir, ...RUNNER_REL_PATH)
+    if (!isFile(runnerPath)) return
+
+    const gate = checkGate({
+      sessionFile: ctx.sessionFile,
+      localDir: path.join(ctx.lumemDir, 'local'),
+      config: gateOverrides(ctx.lumemDir),
+      now: deps.now(),
+    })
+    if (!gate.pass) return
+
+    const child = deps.spawn(
+      process.execPath,
+      [
+        runnerPath,
+        '--project-dir',
+        ctx.projectDir,
+        '--session-file',
+        ctx.sessionFile,
+        '--harness',
+        harnessId,
+      ],
+      { detached: true, stdio: 'ignore' },
+    )
+    child.unref()
+  } catch {
+    // consolidation is best-effort: a failed launch never costs the session
+  }
+}
+
+/** SessionEnd: close the journal for this session, then fire the runner. */
 function end(input: HookInput, deps: HandlerDeps): void {
   const ctx = resolveContext(input, deps)
   if (ctx === undefined) return
 
   appendSignal(ctx.sessionsDir, ctx.sessionId, sessionSignal(ctx, input.harnessId, 'end'))
-  // T40: spawn the detached consolidation runner here (the gate and the lock
-  // decide whether it actually runs); the hook must never wait for it.
+  spawnRunner(ctx, input.harnessId, deps)
 }
 
 /** Build the handler table over injectable ambient state. */
@@ -252,6 +345,7 @@ export function createHandlers(deps?: Partial<HandlerDeps>): HookHandlers {
   const resolved: HandlerDeps = {
     env: deps?.env ?? process.env,
     now: deps?.now ?? (() => new Date()),
+    spawn: deps?.spawn ?? spawn,
   }
 
   return {

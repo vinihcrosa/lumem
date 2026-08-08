@@ -3,8 +3,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { type Signal, readSignals, sessionFileName } from '../core/capture/journal'
-import { type HandlerDeps, createHandlers, handlers, resolveSessionId } from './handlers'
-import type { HookHandlers, HookInput, LumemEvent } from './runtime'
+import {
+  type HandlerDeps,
+  type SpawnFn,
+  createHandlers,
+  handlers,
+  resolveSessionId,
+} from './handlers'
+import { type HookHandlers, type HookInput, type LumemEvent, runHook } from './runtime'
 
 const TS = '2026-08-07T12:00:00.000Z'
 const SESSION_ID = 'sess_a1b2'
@@ -59,11 +65,15 @@ function populated(): { projectDir: string; home: string } {
   return { projectDir, home }
 }
 
-// NEVER the real home or the real env: both are always injected.
+/** Default spawn double: no test in this file may ever launch a real process. */
+const noSpawn: SpawnFn = () => ({ unref: () => undefined })
+
+// NEVER the real home, the real env or the real spawn: all three are injected.
 function make(overrides?: Partial<HandlerDeps> & { home?: string }): HookHandlers {
   return createHandlers({
     env: overrides?.env ?? { HOME: overrides?.home ?? tmpDir() },
     now: overrides?.now ?? (() => new Date(TS)),
+    spawn: overrides?.spawn ?? noSpawn,
   })
 }
 
@@ -97,6 +107,62 @@ function tree(dir: string): string[] {
   }
   walk(dir, '')
   return out.sort()
+}
+
+/** Where `lumem install` drops the runner bundle the SessionEnd hook spawns. */
+function runnerPath(projectDir: string): string {
+  return path.join(projectDir, '.lumem', 'bin', 'lumem-runner.mjs')
+}
+
+function writeRunner(projectDir: string): string {
+  const file = runnerPath(projectDir)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, '// stand-in for dist/lumem-runner.mjs\n')
+  return file
+}
+
+/**
+ * Five work signals spread from 10 to 6 minutes before {@link TS}: past the
+ * default gate (≥5 signals, ≥3 min) once the handler appends its own end signal.
+ */
+function seedGatePassingJournal(projectDir: string): void {
+  const file = journalFile(projectDir)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const lines = Array.from({ length: 5 }, (_, i) =>
+    JSON.stringify({
+      t: 'file',
+      ts: new Date(Date.parse(TS) - (10 - i) * 60_000).toISOString(),
+      path: `src/f${i}.ts`,
+      tool: 'Edit',
+    }),
+  )
+  fs.writeFileSync(file, `${lines.join('\n')}\n`)
+}
+
+interface SpawnCall {
+  command: string
+  args: string[]
+  options: { detached: boolean; stdio: 'ignore' }
+}
+
+/** Records every launch and hands back a child that only knows how to `unref`. */
+function spawnSpy(onSpawn?: () => void): {
+  calls: SpawnCall[]
+  unrefs: () => number
+  fn: SpawnFn
+} {
+  const calls: SpawnCall[] = []
+  let unrefs = 0
+  const fn: SpawnFn = (command, args, options) => {
+    calls.push({ command, args: [...args], options })
+    onSpawn?.()
+    return {
+      unref: () => {
+        unrefs += 1
+      },
+    }
+  }
+  return { calls, unrefs: () => unrefs, fn }
 }
 
 describe('createHandlers', () => {
@@ -412,6 +478,124 @@ describe('end', () => {
 
     expect(fs.existsSync(journalFile(projectDir, 'unknown'))).toBe(true)
     expect(signals(projectDir, 'unknown')).toHaveLength(1)
+  })
+})
+
+describe('end → detached consolidation runner', () => {
+  it('spawns the installed runner detached, unreferenced, with the full argv', () => {
+    const projectDir = project()
+    seedGatePassingJournal(projectDir)
+    const runner = writeRunner(projectDir)
+    const spy = spawnSpy()
+
+    fire(make({ spawn: spy.fn }), 'end', { cwd: projectDir, session_id: SESSION_ID })
+
+    expect(spy.calls).toHaveLength(1)
+    expect(spy.calls[0]).toEqual({
+      command: process.execPath,
+      args: [
+        runner,
+        '--project-dir',
+        projectDir,
+        '--session-file',
+        journalFile(projectDir),
+        '--harness',
+        'claude-code',
+      ],
+      options: { detached: true, stdio: 'ignore' },
+    })
+    expect(spy.unrefs()).toBe(1)
+  })
+
+  it('spawns nothing when the gate refuses the session', () => {
+    const projectDir = project()
+    writeRunner(projectDir)
+    const spy = spawnSpy()
+
+    // No seeded journal: the lone end signal is below both thresholds.
+    fire(make({ spawn: spy.fn }), 'end', { cwd: projectDir, session_id: SESSION_ID })
+
+    expect(spy.calls).toEqual([])
+    expect(signals(projectDir)).toHaveLength(1)
+  })
+
+  it('spawns nothing when the runner bundle is not installed', () => {
+    const projectDir = project()
+    seedGatePassingJournal(projectDir)
+    const spy = spawnSpy()
+
+    fire(make({ spawn: spy.fn }), 'end', { cwd: projectDir, session_id: SESSION_ID })
+
+    expect(spy.calls).toEqual([])
+    expect(fs.existsSync(runnerPath(projectDir))).toBe(false)
+  })
+
+  it('honours the gate thresholds configured in lumem.config.json', () => {
+    const projectDir = project()
+    seedGatePassingJournal(projectDir)
+    writeRunner(projectDir)
+    writeConfig(projectDir, JSON.stringify({ gate: { minSignals: 99 } }))
+    const spy = spawnSpy()
+
+    fire(make({ spawn: spy.fn }), 'end', { cwd: projectDir, session_id: SESSION_ID })
+
+    expect(spy.calls).toEqual([])
+  })
+
+  it('spawns for a session the configured thresholds accept but the defaults reject', () => {
+    const projectDir = project()
+    writeRunner(projectDir)
+    writeConfig(projectDir, JSON.stringify({ gate: { minSignals: 0, minDurationMin: 0 } }))
+    const spy = spawnSpy()
+
+    fire(make({ spawn: spy.fn }), 'end', { cwd: projectDir, session_id: SESSION_ID })
+
+    expect(spy.calls).toHaveLength(1)
+  })
+
+  it('never throws when the launch itself fails', () => {
+    const projectDir = project()
+    seedGatePassingJournal(projectDir)
+    writeRunner(projectDir)
+    const exploding: SpawnFn = () => {
+      throw new Error('EAGAIN')
+    }
+
+    expect(() =>
+      fire(make({ spawn: exploding }), 'end', { cwd: projectDir, session_id: SESSION_ID }),
+    ).not.toThrow()
+  })
+
+  it('returns inside the SessionEnd deadline, with the child still running', async () => {
+    const projectDir = project()
+    seedGatePassingJournal(projectDir)
+    writeRunner(projectDir)
+    let childRunning = false
+    const spy = spawnSpy(() => {
+      childRunning = true
+    })
+    const errors: unknown[] = []
+
+    // The handler returns void, not a promise: there is nothing to await, so
+    // the detached child cannot possibly have finished by the time we assert.
+    const returned = make({ spawn: spy.fn }).end?.(
+      input('end', { cwd: projectDir, session_id: SESSION_ID }),
+    )
+    expect(returned).toBeUndefined()
+    expect(spy.calls).toHaveLength(1)
+    expect(childRunning).toBe(true)
+
+    const other = project()
+    seedGatePassingJournal(other)
+    writeRunner(other)
+    const raced = await runHook(
+      input('end', { cwd: other, session_id: SESSION_ID }),
+      make({ spawn: spy.fn }),
+      { deadlineMs: 50, onError: (err) => errors.push(err) },
+    )
+    expect(raced).toBe('')
+    expect(errors).toEqual([])
+    expect(spy.calls).toHaveLength(2)
   })
 })
 

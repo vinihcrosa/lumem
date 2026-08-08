@@ -5,8 +5,15 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Signal } from '../capture/journal'
 import { defaultConfig, writeConfig } from '../config'
-import { readLocalState, writeLocalState } from '../memory/limits'
-import { factId, memoryLayout } from '../memory/store'
+import {
+  DEFAULT_FILE_BUDGETS,
+  checkSoftLimits,
+  readLocalState,
+  updateCompactionFlags,
+  writeLocalState,
+} from '../memory/limits'
+import type { MemoryFile } from '../memory/store'
+import { addFact, factId, memoryLayout, readMemoryFile, writeMemoryFile } from '../memory/store'
 import { acquireLock } from './lock'
 import { DEFAULT_LLM_TIMEOUT_MS, runConsolidation } from './run'
 
@@ -544,6 +551,105 @@ describe('runConsolidation — failure paths', () => {
     expect(result.error).toContain('nope')
     expect(llm.calls).toHaveLength(0)
     expect(acquireLock(fx.localDir)).not.toBeNull()
+  })
+})
+
+/** Distinct one-line bodies, cheap to serialize and unique by construction. */
+function bulkBodies(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, i) => `legacy note ${i}: a detail recorded during an old session`,
+  )
+}
+
+/** Overwrite project.md with `bodies`, through the store's own writer. */
+function seedProjectMemory(fx: Fixture, bodies: string[]): MemoryFile {
+  const file: MemoryFile = {
+    path: path.join(fx.lumemDir, 'memory', 'project.md'),
+    type: 'project',
+    scope: 'project',
+    facts: [],
+    warnings: [],
+  }
+  for (const body of bodies) {
+    addFact(file, { date: SEED_DATE, body, src: 'sess_old', conf: 'low' })
+  }
+  writeMemoryFile(file)
+  return file
+}
+
+function readProjectMemory(fx: Fixture): MemoryFile {
+  return readMemoryFile(path.join(fx.lumemDir, 'memory', 'project.md'), {
+    type: 'project',
+    scope: 'project',
+  })
+}
+
+const MERGED_BODY =
+  'Auth: session cookies won over JWT; the old per-session notes are merged into this line.'
+
+/** A compaction patch: drop `removed`, keep the rest, add one merged fact. */
+function compactionPatch(removed: string[]): string {
+  return JSON.stringify({
+    version: 1,
+    add: [{ type: 'project', scope: 'project', body: MERGED_BODY, conf: 'high' }],
+    replace: [],
+    remove: removed.map((body) => ({ targetId: factId(body), reason: 'compaction: merged' })),
+  })
+}
+
+describe('runConsolidation — compaction driven by soft limits', () => {
+  it('names the flagged file in the prompt and clears the flag once it fits again', () => {
+    const fx = setup()
+    const bodies = bulkBodies(200)
+    const seeded = seedProjectMemory(fx, bodies)
+
+    // The fixture is genuinely over budget, so the flag is earned, not planted.
+    expect(checkSoftLimits(seeded).exceeded).toBe(true)
+    expect(updateCompactionFlags(fx.localDir, [seeded]).compactionFlags).toEqual(['project'])
+
+    const llm = llmSpy(() => ({ ok: true, stdout: compactionPatch(bodies.slice(5)), stderr: '' }))
+    const result = runConsolidation({ ...baseOptions(fx), runLlm: llm.fn })
+
+    const prompt = llm.calls[0]?.prompt ?? ''
+    expect(prompt).toContain('compact: project')
+    expect(prompt).toContain(seeded.path)
+
+    expect(result.ran).toBe(true)
+    expect(result.error).toBeUndefined()
+
+    const after = readProjectMemory(fx)
+    const measured = checkSoftLimits(after)
+    expect(measured.lines).toBeLessThanOrEqual(DEFAULT_FILE_BUDGETS.project.lines)
+    expect(measured.bytes).toBeLessThanOrEqual(DEFAULT_FILE_BUDGETS.project.bytes)
+    expect(measured.exceeded).toBe(false)
+
+    // The compaction kept what it was told to keep and recorded the merge.
+    expect(after.facts.map((fact) => fact.body)).toEqual([...bodies.slice(0, 5), MERGED_BODY])
+    expect(readLocalState(fx.localDir).compactionFlags).toEqual([])
+  })
+
+  it('keeps the flag when the patch does not bring the file back under budget', () => {
+    const fx = setup()
+    const bodies = bulkBodies(200)
+    const seeded = seedProjectMemory(fx, bodies)
+    expect(updateCompactionFlags(fx.localDir, [seeded]).compactionFlags).toEqual(['project'])
+
+    // Ten of two hundred: a real edit that is nowhere near enough.
+    const llm = llmSpy(() => ({
+      ok: true,
+      stdout: compactionPatch(bodies.slice(0, 10)),
+      stderr: '',
+    }))
+    const result = runConsolidation({ ...baseOptions(fx), runLlm: llm.fn })
+
+    expect(result.ran).toBe(true)
+    expect(result.applied?.filesWritten).toEqual([seeded.path])
+
+    const after = readProjectMemory(fx)
+    expect(after.facts).toHaveLength(191)
+    expect(checkSoftLimits(after).exceeded).toBe(true)
+    expect(readLocalState(fx.localDir).compactionFlags).toEqual(['project'])
   })
 })
 

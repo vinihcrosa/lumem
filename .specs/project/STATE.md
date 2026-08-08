@@ -110,7 +110,7 @@ git push --follow-tags
 
 **One-time setup, and it can only be done by the repo owner:**
 
-1. **Publish credentials.** Either (preferred) configure npm Trusted Publishing for `lumem` pointing at `vinihcrosa/lumem` + `release.yml`, which needs no long-lived token — or create an npm **Automation** token and add it as the `NPM_TOKEN` secret. The workflow works with either; with trusted publishing the `NODE_AUTH_TOKEN` line is simply unused.
+1. **Publish credentials.** Trusted Publishing is configured on a package's own settings page, so it cannot be set up for a package that does not exist yet. The order is therefore fixed: publish `0.1.0` once with an npm **Automation** token stored as the `NPM_TOKEN` secret, then configure Trusted Publishing (`vinihcrosa/lumem`, workflow `release.yml`, environment `npm`) and delete the token. The workflow needs no edit to switch — npm detects the OIDC environment on its own, ignores the token, and generates provenance automatically. It runs Node 22 with `npm@latest` because OIDC publishing requires npm >= 11.5.1 and Node >= 22.14; Node 22 alone still ships npm 10.x.
 2. **The repo must be public** for `--provenance` to work. On a private repo the publish step fails; drop the flag if it stays private.
 3. The workflow references an `npm` environment. GitHub creates it on first use; add required reviewers there if a publish should need approval.
 

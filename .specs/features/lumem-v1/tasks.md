@@ -1,29 +1,29 @@
 # lumem V1 — Tasks
 
 **Design**: [design.md](design.md) · **Spec**: [spec.md](spec.md) · **Testing**: [../../codebase/TESTING.md](../../codebase/TESTING.md)
-**Status**: Done — 48/48 tasks, M0–M5 completos
+**Status**: Done — 48/48 tasks, M0–M5 complete
 
-**Convenções:**
-- Tools (todas as tasks): ferramentas built-in de arquivo + Bash. MCP: NONE. Skills: NONE. Exceções anotadas na task.
-- 1 commit por task, Conventional Commits, escopo = módulo (`feat(harness): …`).
-- `[P]` = paralelizável com as irmãs da mesma fase (deps satisfeitas + testes parallel-safe por TESTING.md).
-- Toda task: suíte verde, contagem de testes só cresce.
-- Gate commands: ver TESTING.md (quick / full / build / bench).
+**Conventions:**
+- Tools (all tasks): built-in file tools + Bash. MCP: NONE. Skills: NONE. Exceptions noted on the task.
+- 1 commit per task, Conventional Commits, scope = module (`feat(harness): …`).
+- `[P]` = parallelizable with its siblings in the same phase (deps satisfied + tests parallel-safe per TESTING.md).
+- Every task: green suite, test count only grows.
+- Gate commands: see TESTING.md (quick / full / build / bench).
 
 ---
 
 ## Execution Plan
 
-### Fase 0 — M0 Esqueleto (saída: `lumem doctor` identifica os dois harnesses)
+### Phase 0 — M0 Skeleton (exit: `lumem doctor` identifies both harnesses)
 
 ```
 T1 ──┬→ T2 ──┬────────────→ T5 ─┐
      └→ T3 ──┼→ T4 [P] ─────────┼→ T7
-             ├→ T5 [P] (c/ T2) ─┤
+             ├→ T5 [P] (w/ T2) ─┤
              └→ T6 [P] ─────────┘
 ```
 
-### Fase 1 — M1 Instalador (saída: install→uninstall sem resíduo, round-trip byte-idêntico)
+### Phase 1 — M1 Installer (exit: install→uninstall with no residue, byte-identical round-trip)
 
 ```
 T1 ─→ T8 [P]
@@ -32,19 +32,19 @@ T2 ─┬→ T9 [P] ──┐
     ├→ T11 [P]* ┼→ T13 ─→ T14 ─┐
     └→ T12 [P] ─┘              ├→ T16 ─┬→ T17 [P]
 T5,T6,T12 ──────→ T15 ─────────┘       ├→ T18 [P]
-                                       └→ T19 [P] (c/ T12)
-* T11 também depende de T8
+                                       └→ T19 [P] (w/ T12)
+* T11 also depends on T8
 ```
 
-### Fase 2 — M2 Memória manual (saída: agente lê e usa memória injetada)
+### Phase 2 — M2 Manual memory (exit: the agent reads and uses the injected memory)
 
 ```
-T2 ─→ T20 ─→ T21 ─┬→ T22 [P] ─┬→ T24 [P]   T26 ─→ T27 (c/ T8)
+T2 ─→ T20 ─→ T21 ─┬→ T22 [P] ─┬→ T24 [P]   T26 ─→ T27 (w/ T8)
                   └→ T23 [P]  ├→ T25 [P]
                               └→ T26
 ```
 
-### Fase 3 — M3 Captura (saída: sinais no diário, zero sessão quebrada)
+### Phase 3 — M3 Capture (exit: signals in the journal, zero broken sessions)
 
 ```
 T2 ──→ T28 [P] ──┐
@@ -55,17 +55,17 @@ T26 ─────────────┘       │
 T14,T16,T28 ─→ T33 [P] ──┘
 ```
 
-### Fase 4 — M4 Consolidação (saída: fatos úteis aparecem sozinhos)
+### Phase 4 — M4 Consolidation (exit: useful facts appear on their own)
 
 ```
 T23,T29 ─→ T35 [P] ─┐
 T2 ──────→ T36 [P] ─┤
-T21 ─────→ T37 [P] ─┼→ T39 ─┬→ T40 (c/ T32)
+T21 ─────→ T37 [P] ─┼→ T39 ─┬→ T40 (w/ T32)
 T8 ──────→ T38 [P] ─┘       ├→ T41 [P]
-T8 ──────→ T43 [P]          └→ T42 [P] (c/ T23)
+T8 ──────→ T43 [P]          └→ T42 [P] (w/ T23)
 ```
 
-### Fase 5 — M5 Endurecimento (saída: pronto p/ repo público)
+### Phase 5 — M5 Hardening (exit: ready for a public repo)
 
 ```
 T32,T40 ─→ T44 [P]
@@ -78,475 +78,475 @@ T1,T41 ──→ T47 [P]
 
 ## Task Breakdown
 
-## Fase 0 — M0
+## Phase 0 — M0
 
-### T1: Scaffold do repositório ✅
-**What**: `package.json` (ESM, `engines.node>=20`, `bin: {lumem}`), tsconfig, biome, vitest, tsup multi-entry (`cli`, `lumem-hook`, `lumem-runner`), scripts `check`/`verify`/`build`/`bench:hook`; checar disponibilidade do nome `lumem` no npm registry e registrar resultado em STATE.md (decisão aberta #1).
-**Where**: raiz; `src/` esqueleto vazio
-**Depends on**: None · **Reuses**: — · **Requirement**: OPS-04, OPS-03 (parcial)
+### T1: Repository scaffold ✅
+**What**: `package.json` (ESM, `engines.node>=20`, `bin: {lumem}`), tsconfig, biome, vitest, tsup multi-entry (`cli`, `lumem-hook`, `lumem-runner`), `check`/`verify`/`build`/`bench:hook` scripts; check availability of the name `lumem` on the npm registry and record the result in STATE.md (open decision #1).
+**Where**: root; empty `src/` skeleton
+**Depends on**: None · **Reuses**: — · **Requirement**: OPS-04, OPS-03 (partial)
 **Done when**:
-- [ ] `npm run build` gera os 3 bundles a partir de entrypoints stub
-- [ ] `npm run verify` verde (0 testes é aceitável só nesta task)
-- [ ] Resultado do `npm view lumem` registrado em STATE.md
+- [ ] `npm run build` produces the 3 bundles from stub entrypoints
+- [ ] `npm run verify` green (0 tests is acceptable only in this task)
+- [ ] The `npm view lumem` result recorded in STATE.md
 **Tests**: none (infra) · **Gate**: build + full
-**Verify**: `node dist/cli.js --version` imprime versão.
-**Commit**: `chore: scaffold TS/ESM, build multi-entry e gates`
+**Verify**: `node dist/cli.js --version` prints the version.
+**Commit**: `chore: scaffold TS/ESM, multi-entry build and gates`
 
 ### T2: core/shared — fsx, log ✅
-**What**: `fsx.ts` (`atomicWrite` tmp+rename, `expandHome`, `sha256`, `readJsonSafe`), `log.ts` (append JSONL estruturado em `local/lumem.log`; rotação = stub com interface pronta).
-**Where**: `src/core/shared/{fsx,log}.ts` + testes
-**Depends on**: T1 · **Reuses**: node builtins · **Requirement**: OPS-09 (parcial)
+**What**: `fsx.ts` (`atomicWrite` tmp+rename, `expandHome`, `sha256`, `readJsonSafe`), `log.ts` (structured JSONL append to `local/lumem.log`; rotation = stub with the interface ready).
+**Where**: `src/core/shared/{fsx,log}.ts` + tests
+**Depends on**: T1 · **Reuses**: node builtins · **Requirement**: OPS-09 (partial)
 **Done when**:
-- [ ] `atomicWrite` sobrevive a crash simulado (tmp órfão não corrompe destino)
-- [ ] Gate quick passa
+- [ ] `atomicWrite` survives a simulated crash (an orphaned tmp does not corrupt the destination)
+- [ ] Quick gate passes
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(shared): fsx atômico e log estruturado`
+**Commit**: `feat(shared): atomic fsx and structured log`
 
-### T3: Schema do AdapterDescriptor + loader [P] ✅
-**What**: zod schema completo (design §Data Models) + `loadDescriptors(dir)`; descritor inválido → erro nomeando campo, harness excluído.
-**Where**: `src/adapters/schema.ts`, `src/core/harness/load.ts` + testes
+### T3: AdapterDescriptor schema + loader [P] ✅
+**What**: complete zod schema (design §Data Models) + `loadDescriptors(dir)`; an invalid descriptor → an error naming the field, harness excluded.
+**Where**: `src/adapters/schema.ts`, `src/core/harness/load.ts` + tests
 **Depends on**: T1 · **Reuses**: — · **Requirement**: HARN-02
 **Done when**:
-- [ ] Fixture inválida rejeitada com path do campo no erro; válida carrega tipada
-- [ ] Gate quick passa
+- [ ] An invalid fixture is rejected with the field path in the error; a valid one loads typed
+- [ ] Quick gate passes
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(harness): schema zod e loader de descritores`
+**Commit**: `feat(harness): zod schema and descriptor loader`
 
-### T4: Descritores claude-code.json e codex.json [P] ✅
-**What**: os dois descritores com fatos verificados (design §0/§Data Models): Codex skills em `.agents/skills`, hooks `.codex/hooks.json`, minVersions 2.1.224/0.147.0, `injection[]`, `headless`.
-**Where**: `src/adapters/{claude-code,codex}.json` + teste de validação
-**Depends on**: T3 · **Reuses**: schema T3 · **Requirement**: HARN-01
+### T4: claude-code.json and codex.json descriptors [P] ✅
+**What**: both descriptors with the verified facts (design §0/§Data Models): Codex skills in `.agents/skills`, hooks in `.codex/hooks.json`, minVersions 2.1.224/0.147.0, `injection[]`, `headless`.
+**Where**: `src/adapters/{claude-code,codex}.json` + validation test
+**Depends on**: T3 · **Reuses**: T3's schema · **Requirement**: HARN-01
 **Done when**:
-- [ ] Ambos passam no schema em teste; snapshot dos campos críticos
+- [ ] Both pass the schema in a test; snapshot of the critical fields
 **Tests**: unit (via schema) · **Gate**: quick
-**Commit**: `feat(adapters): descritores claude-code e codex verificados`
+**Commit**: `feat(adapters): verified claude-code and codex descriptors`
 
-### T5: Engine de detecção [P] ✅
-**What**: `detect(descriptor)` — regras `dir`/`bin`/`file`, probe de versão via `versionArgs`; nunca lança por harness ausente.
-**Where**: `src/core/harness/detect.ts` + testes (fixtures em tmp, PATH fake)
+### T5: Detection engine [P] ✅
+**What**: `detect(descriptor)` — `dir`/`bin`/`file` rules, version probe via `versionArgs`; never throws for a missing harness.
+**Where**: `src/core/harness/detect.ts` + tests (fixtures in tmp, fake PATH)
 **Depends on**: T2, T3 · **Reuses**: fsx · **Requirement**: HARN-01
 **Done when**:
-- [ ] Detecta por dir e por bin; ausente → `detected:false` sem erro; versão parseada
+- [ ] Detects by dir and by bin; absent → `detected:false` without an error; version parsed
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(harness): detecção declarativa dir/bin/file`
+**Commit**: `feat(harness): declarative dir/bin/file detection`
 
-### T6: Resolução de OperatingMode [P] ✅
-**What**: `resolveMode(descriptor, detection)` — capacidades → `grade` (`full|degraded|skill-only|unavailable`) + `fallbacks` declarados; versão < mínima ⇒ degrade explícito.
-**Where**: `src/core/harness/mode.ts` + testes
+### T6: OperatingMode resolution [P] ✅
+**What**: `resolveMode(descriptor, detection)` — capabilities → `grade` (`full|degraded|skill-only|unavailable`) + declared `fallbacks`; version < minimum ⇒ explicit degrade.
+**Where**: `src/core/harness/mode.ts` + tests
 **Depends on**: T3 · **Reuses**: — · **Requirement**: HARN-03
 **Done when**:
-- [ ] Matriz de casos: full, sem sessionStart→fallback injeção, sem hooks→skill-only, versão velha→aviso
+- [ ] Case matrix: full, no sessionStart→injection fallback, no hooks→skill-only, old version→warning
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(harness): operating mode com degradação declarada`
+**Commit**: `feat(harness): operating mode with declared degradation`
 
-### T7: CLI esqueleto + doctor + status ✅
-**What**: programa commander, flags globais `--json`/`--dry-run`, exit codes (0/1/3); `lumem doctor` (harnesses, versões, capacidades, modo, fallbacks) e `lumem status` ("nada instalado" limpo).
-**Where**: `src/cli/{index,doctor,status}.ts` + testes integration
+### T7: CLI skeleton + doctor + status ✅
+**What**: commander program, global `--json`/`--dry-run` flags, exit codes (0/1/3); `lumem doctor` (harnesses, versions, capabilities, mode, fallbacks) and `lumem status` (a clean "nothing installed").
+**Where**: `src/cli/{index,doctor,status}.ts` + integration tests
 **Depends on**: T4, T5, T6 · **Reuses**: harness engine · **Requirement**: CLI-05, CLI-06, CLI-11, HARN-04
 **Done when**:
-- [ ] Em fake home com os 2 harnesses: doctor lista ambos; sem harness: "não detectado", exit 0
-- [ ] `--json` estável nos dois comandos
-- [ ] **Saída M0**: doctor correto contra harnesses reais da máquina (verificação manual registrada)
+- [ ] In a fake home with both harnesses: doctor lists both; with no harness: "not detected", exit 0
+- [ ] `--json` stable on both commands
+- [ ] **M0 exit**: doctor correct against the machine's real harnesses (manual verification recorded)
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): doctor e status com modos de operação`
+**Commit**: `feat(cli): doctor and status with operating modes`
 
-## Fase 1 — M1
+## Phase 1 — M1
 
-### T8: Assets stub [P] ✅
-**What**: `assets/` inicial: `skills/lumem-memory/SKILL.md` e `skills/lumem-consolidate/SKILL.md` (frontmatter válido + corpo mínimo), `agents/lumem-consolidator.md`, `harness/*/hooks.tmpl.json` (eventos do eventMap chamando `lumem-hook.mjs`).
+### T8: Stub assets [P] ✅
+**What**: initial `assets/`: `skills/lumem-memory/SKILL.md` and `skills/lumem-consolidate/SKILL.md` (valid frontmatter + minimal body), `agents/lumem-consolidator.md`, `harness/*/hooks.tmpl.json` (eventMap events calling `lumem-hook.mjs`).
 **Where**: `assets/**`
-**Depends on**: T1 · **Reuses**: eventMap dos descritores · **Requirement**: MEM-07, CONS-03/04, CONS-06 (stubs)
+**Depends on**: T1 · **Reuses**: the descriptors' eventMap · **Requirement**: MEM-07, CONS-03/04, CONS-06 (stubs)
 **Done when**:
-- [ ] Frontmatter compatível com os dois harnesses (name+description); templates JSON parseáveis
-**Tests**: none (dados; validados por T11/T33) · **Gate**: build
-**Commit**: `feat(assets): skills, agent e templates de hook iniciais`
+- [ ] Frontmatter compatible with both harnesses (name+description); JSON templates parseable
+**Tests**: none (data; validated by T11/T33) · **Gate**: build
+**Commit**: `feat(assets): initial skills, agent and hook templates`
 
-### T9: Blocos gerenciados [P] ✅
-**What**: `upsertManagedBlock`/`removeManagedBlock` com marcadores `<!-- lumem:start/end -->`; cria arquivo se ausente; conteúdo externo intocado byte a byte; respeita `maxBytes` truncando por prioridade.
+### T9: Managed blocks [P] ✅
+**What**: `upsertManagedBlock`/`removeManagedBlock` with `<!-- lumem:start/end -->` markers; creates the file if absent; outside content untouched byte for byte; respects `maxBytes` by truncating by priority.
 **Where**: `src/core/install/managed-block.ts` + golden tests
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: INST-05
 **Done when**:
-- [ ] Goldens: sem bloco, com bloco, conteúdo antes/depois, remoção restaura, maxBytes trunca com aviso
+- [ ] Goldens: no block, with block, content before/after, removal restores, maxBytes truncates with a warning
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(install): blocos gerenciados com marcadores`
+**Commit**: `feat(install): managed blocks with markers`
 
-### T10: Backup timestampado [P] ✅
-**What**: `backupOnce(path)` → `.lumem/local/backups/<ts>/<relpath>`; idempotente (1º backup vence).
-**Where**: `src/core/install/backup.ts` + testes
+### T10: Timestamped backup [P] ✅
+**What**: `backupOnce(path)` → `.lumem/local/backups/<ts>/<relpath>`; idempotent (the 1st backup wins).
+**Where**: `src/core/install/backup.ts` + tests
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: INST-06
 **Done when**:
-- [ ] Segundo backup do mesmo arquivo não sobrescreve o primeiro
+- [ ] A second backup of the same file does not overwrite the first
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(install): backup único timestampado`
+**Commit**: `feat(install): single timestamped backup`
 
 ### T11: Manifest [P] ✅
-**What**: build do manifest a partir de `assets/` + `dist/` (id, kind, versão, hash sha256, dest por harness/escopo).
-**Where**: `src/core/install/manifest.ts` + testes
+**What**: build the manifest from `assets/` + `dist/` (id, kind, version, sha256 hash, dest per harness/scope).
+**Where**: `src/core/install/manifest.ts` + tests
 **Depends on**: T2, T8 · **Reuses**: fsx.sha256 · **Requirement**: INST-01
 **Done when**:
-- [ ] Manifest determinístico (mesmo input ⇒ mesmos hashes); cobre skill/agent/hook-config
+- [ ] Deterministic manifest (same input ⇒ same hashes); covers skill/agent/hook-config
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(install): manifest de artefatos com hash`
+**Commit**: `feat(install): artifact manifest with hashes`
 
 ### T12: Lockfile + drift [P] ✅
-**What**: read/write `lumem-lock.json`; `detectDrift(lock, disk)` por hash.
-**Where**: `src/core/install/lockfile.ts` + testes
+**What**: read/write `lumem-lock.json`; `detectDrift(lock, disk)` by hash.
+**Where**: `src/core/install/lockfile.ts` + tests
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: INST-02, INST-04
 **Done when**:
-- [ ] Drift detectado quando arquivo gerenciado editado; ausência de arquivo = drift tipo `missing`
+- [ ] Drift detected when a managed file is edited; a missing file = drift of kind `missing`
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(install): lockfile e detecção de drift`
+**Commit**: `feat(install): lockfile and drift detection`
 
-### T13: Planner puro ✅
-**What**: `plan(manifest, lock, modes, opts)` — diff desejado × lock × disco ⇒ lista de ações (`create|update|skip|conflict`); zero I/O de escrita; é o que `--dry-run` imprime.
-**Where**: `src/core/install/plan.ts` + testes
+### T13: Pure planner ✅
+**What**: `plan(manifest, lock, modes, opts)` — diff of desired × lock × disk ⇒ a list of actions (`create|update|skip|conflict`); zero write I/O; this is what `--dry-run` prints.
+**Where**: `src/core/install/plan.ts` + tests
 **Depends on**: T11, T12 · **Reuses**: manifest, lockfile · **Requirement**: INST-03
 **Done when**:
-- [ ] Estado já instalado ⇒ plan vazio (idempotência provada no plano); drift ⇒ `conflict`, nunca `update` sem force
+- [ ] Already-installed state ⇒ empty plan (idempotency proven in the plan); drift ⇒ `conflict`, never `update` without force
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(install): planner idempotente puro`
+**Commit**: `feat(install): pure idempotent planner`
 
 ### T14: Apply ✅
-**What**: executa plan: symlink/`--copy`, blocos gerenciados, backups, atualiza lockfile por ação; falha no meio deixa lockfile coerente com o aplicado.
-**Where**: `src/core/install/apply.ts` + testes integration (fake homes)
-**Depends on**: T9, T10, T13 · **Reuses**: T9/T10/T13 · **Requirement**: INST-07, OPS-06 (parcial)
+**What**: executes the plan: symlink/`--copy`, managed blocks, backups, updates the lockfile per action; a failure midway leaves the lockfile consistent with what was applied.
+**Where**: `src/core/install/apply.ts` + integration tests (fake homes)
+**Depends on**: T9, T10, T13 · **Reuses**: T9/T10/T13 · **Requirement**: INST-07, OPS-06 (partial)
 **Done when**:
-- [ ] `apply(plan)` 2× ⇒ segunda vez zero ações; modo copy e symlink cobertos
+- [ ] `apply(plan)` 2× ⇒ zero actions the second time; copy and symlink modes covered
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(install): apply transacional com lockfile`
+**Commit**: `feat(install): transactional apply with lockfile`
 
 ### T15: `lumem init` ✅
-**What**: detecta harnesses, seleção interativa (ou `--yes`), cria `.lumem/` (`memory/`, `local/`, `lumem.config.json` com defaults do design, `.gitignore` cobrindo `local/`), lockfile vazio.
-**Where**: `src/cli/init.ts` + testes integration
+**What**: detects harnesses, interactive selection (or `--yes`), creates `.lumem/` (`memory/`, `local/`, `lumem.config.json` with the design defaults, `.gitignore` covering `local/`), empty lockfile.
+**Where**: `src/cli/init.ts` + integration tests
 **Depends on**: T5, T6, T12 · **Reuses**: detect/mode/lockfile · **Requirement**: CLI-01, MEM-06
 **Done when**:
-- [ ] Repo novo: estrutura criada; re-run: no-op; `.lumem/local/` gitignored
+- [ ] New repo: structure created; re-run: no-op; `.lumem/local/` gitignored
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): init com config e gitignore automáticos`
+**Commit**: `feat(cli): init with automatic config and gitignore`
 
 ### T16: `lumem install` ✅
-**What**: `install [--harness <id>] [--global] [--copy] [--dry-run]` — plan+apply nos harnesses selecionados; pós-instalação Codex imprime instrução `/hooks`.
-**Where**: `src/cli/install.ts` + testes integration
-**Depends on**: T14, T15 · **Reuses**: plan/apply · **Requirement**: CLI-02, INST-08, CLI-10, INST-09 (mensagem)
+**What**: `install [--harness <id>] [--global] [--copy] [--dry-run]` — plan+apply on the selected harnesses; the Codex post-install step prints the `/hooks` instruction.
+**Where**: `src/cli/install.ts` + integration tests
+**Depends on**: T14, T15 · **Reuses**: plan/apply · **Requirement**: CLI-02, INST-08, CLI-10, INST-09 (message)
 **Done when**:
-- [ ] `--dry-run` imprime diff e não escreve nada (asserta fs intacto); N runs idênticos; escopo global vai pra home fake
+- [ ] `--dry-run` prints the diff and writes nothing (asserts the fs is intact); N identical runs; global scope goes to the fake home
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): install idempotente com dry-run`
+**Commit**: `feat(cli): idempotent install with dry-run`
 
 ### T17: `lumem uninstall` [P] ✅
-**What**: remove artefatos do lockfile, restaura blocos gerenciados, preserva memória; `--purge` apaga `.lumem/` com confirmação.
-**Where**: `src/cli/uninstall.ts` + teste round-trip
+**What**: removes the lockfile's artifacts, restores managed blocks, preserves memory; `--purge` deletes `.lumem/` with a confirmation.
+**Where**: `src/cli/uninstall.ts` + round-trip test
 **Depends on**: T16 · **Reuses**: removeManagedBlock, lockfile · **Requirement**: CLI-04, OPS-06
 **Done when**:
-- [ ] **Round-trip**: repo com `CLAUDE.md`/`AGENTS.md` de usuário → install → uninstall ⇒ byte-idêntico fora de `.lumem/` (Independent Test P1.2)
-- [ ] Sem `--purge`, `memory/` sobrevive
+- [ ] **Round-trip**: a repo with the user's `CLAUDE.md`/`AGENTS.md` → install → uninstall ⇒ byte-identical outside `.lumem/` (P1.2 Independent Test)
+- [ ] Without `--purge`, `memory/` survives
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): uninstall reversível com purge explícito`
+**Commit**: `feat(cli): reversible uninstall with explicit purge`
 
 ### T18: `lumem sync` [P] ✅
-**What**: reconcilia disco × manifest × lock; atualiza versão mudada; drift ⇒ avisa e exige `--force`; exit 3 em drift.
-**Where**: `src/cli/sync.ts` + testes integration
+**What**: reconciles disk × manifest × lock; updates whatever changed version; drift ⇒ warns and requires `--force`; exit 3 on drift.
+**Where**: `src/cli/sync.ts` + integration tests
 **Depends on**: T16 · **Reuses**: plan/apply/drift · **Requirement**: CLI-03, INST-04
 **Done when**:
-- [ ] Arquivo editado pelo usuário: sync avisa, não toca; `--force` sobrescreve com backup
+- [ ] File edited by the user: sync warns, does not touch it; `--force` overwrites with a backup
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): sync com proteção de drift`
+**Commit**: `feat(cli): sync with drift protection`
 
-### T19: Doctor estendido [P] ✅
-**What**: doctor soma: drift lock×disco, versão < mínima, hooks Codex instalados → lembrete de trust `/hooks`, última falha de consolidação (lê log).
-**Where**: `src/cli/doctor.ts` (modif.) + testes
+### T19: Extended doctor [P] ✅
+**What**: doctor also reports: lock×disk drift, version < minimum, Codex hooks installed → `/hooks` trust reminder, last consolidation failure (reads the log).
+**Where**: `src/cli/doctor.ts` (modified) + tests
 **Depends on**: T12, T16 · **Reuses**: drift, mode · **Requirement**: INST-09, HARN-04
 **Done when**:
-- [ ] Cada condição gera seção própria no relatório; exit 3 quando drift/incompat
+- [ ] Each condition gets its own section in the report; exit 3 on drift/incompatibility
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): doctor com drift, versões e trust`
+**Commit**: `feat(cli): doctor with drift, versions and trust`
 
-## Fase 2 — M2
+## Phase 2 — M2
 
-### T20: Scanner de segredos ✅
-**What**: `scanSecrets(text)` — regexes (AKIA, PEM, JWT, `KEY=` alta entropia ≥20 chars, tokens comuns) + Shannon entropy; corpus positivo/negativo.
-**Where**: `src/core/shared/secrets.ts` + testes
+### T20: Secret scanner ✅
+**What**: `scanSecrets(text)` — regexes (AKIA, PEM, JWT, `KEY=` with high entropy ≥20 chars, common tokens) + Shannon entropy; positive/negative corpus.
+**Where**: `src/core/shared/secrets.ts` + tests
 **Depends on**: T2 · **Reuses**: — · **Requirement**: MEM-05
 **Done when**:
-- [ ] Corpus: ≥12 positivos detectados, ≥12 negativos limpos (código normal, hashes de commit, UUIDs não flagam)
+- [ ] Corpus: ≥12 positives detected, ≥12 negatives clean (normal code, commit hashes, UUIDs do not flag)
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(shared): scanner de segredos regex+entropia`
+**Commit**: `feat(shared): secret scanner with regex+entropy`
 
 ### T21: Memory store ✅
-**What**: parse/serialize de fatos (formato PRD §5.3 exato), parser tolerante (entrada malformada pulada+logada), id derivado `sha256[0:8]`, `writeStore` atômico como **choke point** com `scanSecrets` (recusa = erro tipado).
+**What**: fact parse/serialize (exactly the PRD §5.3 format), tolerant parser (a malformed entry is skipped+logged), derived id `sha256[0:8]`, atomic `writeStore` as the **choke point** with `scanSecrets` (refusal = typed error).
 **Where**: `src/core/memory/store.ts` + golden tests
 **Depends on**: T20 · **Reuses**: fsx, secrets · **Requirement**: MEM-01, MEM-02, MEM-05
 **Done when**:
-- [ ] Goldens round-trip parse→serialize byte-idêntico; malformado não crasha; write com segredo lança `SecretRefusal`
+- [ ] Goldens round-trip parse→serialize byte-identical; malformed does not crash; a write with a secret throws `SecretRefusal`
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(memory): store com proveniência e scrub no write`
+**Commit**: `feat(memory): store with provenance and scrub on write`
 
-### T22: Orçamento de injeção [P] ✅
-**What**: `buildInjection(stores, budgetBytes)` — prioridade corrections recentes → project → preference; trunca por entrada inteira; nunca excede teto.
-**Where**: `src/core/memory/budget.ts` + testes
+### T22: Injection budget [P] ✅
+**What**: `buildInjection(stores, budgetBytes)` — priority recent corrections → project → preference; truncates whole entries; never exceeds the ceiling.
+**Where**: `src/core/memory/budget.ts` + tests
 **Depends on**: T21 · **Reuses**: store · **Requirement**: MEM-03
 **Done when**:
-- [ ] Property test: qualquer store, output ≤ budget; ordem de prioridade asserta
+- [ ] Property test: for any store, output ≤ budget; priority order asserted
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(memory): injeção com orçamento e prioridade`
+**Commit**: `feat(memory): injection with budget and priority`
 
 ### T23: Soft limits + state.json [P] ✅
-**What**: `checkSoftLimits(store, config)` ⇒ `CompactionFlag[]` persistidos em `local/state.json`; leitura/escrita de `LocalState`.
-**Where**: `src/core/memory/limits.ts` + testes
+**What**: `checkSoftLimits(store, config)` ⇒ `CompactionFlag[]` persisted in `local/state.json`; reading/writing `LocalState`.
+**Where**: `src/core/memory/limits.ts` + tests
 **Depends on**: T21 · **Reuses**: fsx · **Requirement**: MEM-04 (flags)
 **Done when**:
-- [ ] Limites de linhas E bytes por tipo; flag persiste e deduplica
+- [ ] Line AND byte limits per type; the flag persists and deduplicates
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(memory): soft limits e flags de compactação`
+**Commit**: `feat(memory): soft limits and compaction flags`
 
 ### T24: `lumem memory list|show|search` [P] ✅
-**What**: leitura humana (ids derivados exibidos) + `--json`; search = substring case-insensitive sobre corpo.
-**Where**: `src/cli/memory-read.ts` + testes integration
+**What**: human-readable output (derived ids shown) + `--json`; search = case-insensitive substring over the body.
+**Where**: `src/cli/memory-read.ts` + integration tests
 **Depends on**: T21, T22 · **Reuses**: store · **Requirement**: CLI-07, CLI-11
 **Done when**:
-- [ ] Ids exibidos funcionam como argumento de show; escopos global+projeto mesclados com origem marcada
+- [ ] Displayed ids work as an argument to show; global+project scopes merged with the origin marked
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(cli): memory list/show/search`
 
 ### T25: `lumem memory add|edit|forget` [P] ✅
-**What**: escrita manual (add com `--type/--scope/--conf`, src=`manual`), edit abre `$EDITOR` ou aceita `--body`, forget por id; tudo passa pelo choke point (segredo recusado com mensagem clara).
-**Where**: `src/cli/memory-write.ts` + testes integration
+**What**: manual writing (add with `--type/--scope/--conf`, src=`manual`), edit opens `$EDITOR` or accepts `--body`, forget by id; everything goes through the choke point (a secret is refused with a clear message).
+**Where**: `src/cli/memory-write.ts` + integration tests
 **Depends on**: T21 · **Reuses**: store · **Requirement**: CLI-08
 **Done when**:
-- [ ] Add grava formato PRD exato; forget remove por id; segredo recusado exit 1 com motivo
+- [ ] Add writes the exact PRD format; forget removes by id; a secret is refused with exit 1 and a reason
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): memory add/edit/forget com scrub`
+**Commit**: `feat(cli): memory add/edit/forget with scrub`
 
 ### T26: `lumem memory context` ✅
-**What**: comando (oculto de help principal) que imprime o bloco de injeção — fonte única usada pela skill (M2) e pelo hook inject (M3).
-**Where**: `src/cli/memory-context.ts` + testes
+**What**: a command (hidden from the main help) that prints the injection block — the single source used by the skill (M2) and by the inject hook (M3).
+**Where**: `src/cli/memory-context.ts` + tests
 **Depends on**: T22 · **Reuses**: buildInjection · **Requirement**: MEM-03
 **Done when**:
-- [ ] Output ≤ budget do config; vazio ⇒ string vazia exit 0 (nunca erro)
+- [ ] Output ≤ the config budget; empty ⇒ empty string, exit 0 (never an error)
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): memory context para injeção`
+**Commit**: `feat(cli): memory context for injection`
 
-### T27: Skill lumem-memory final ✅
-**What**: SKILL.md real: contrato de leitura/escrita durante sessão, instrução de injeção para modo degradado ("rode `lumem memory context` e leia antes de agir"), gatilhos de escrita explícita.
+### T27: Final lumem-memory skill ✅
+**What**: the real SKILL.md: the read/write contract during a session, the injection instruction for degraded mode ("run `lumem memory context` and read it before acting"), explicit write triggers.
 **Where**: `assets/skills/lumem-memory/SKILL.md`
 **Depends on**: T8, T26 · **Reuses**: — · **Requirement**: MEM-07
 **Done when**:
-- [ ] Frontmatter válido nos 2 harnesses; **Saída M2**: sessão real do Claude Code usa memória injetada (verificação manual registrada em STATE)
-**Tests**: none (dado) · **Gate**: build
-**Commit**: `feat(assets): skill lumem-memory completa`
+- [ ] Frontmatter valid on both harnesses; **M2 exit**: a real Claude Code session uses the injected memory (manual verification recorded in STATE)
+**Tests**: none (data) · **Gate**: build
+**Commit**: `feat(assets): complete lumem-memory skill`
 
-## Fase 3 — M3
+## Phase 3 — M3
 
-### T28: Hook entrypoint fail-open [P] ✅
-**What**: `hooks/main.ts` → bundle `lumem-hook.mjs`: dispatch por argv `<harnessId> <event>`, wrapper try/catch total + deadline (`inject` 2000ms / captura 100ms) + `exit 0` incondicional; parse manual de stdin; teste de bundle **zero imports externos**.
-**Where**: `src/hooks/main.ts` + testes + assert no build
+### T28: Fail-open hook entrypoint [P] ✅
+**What**: `hooks/main.ts` → the `lumem-hook.mjs` bundle: dispatch on argv `<harnessId> <event>`, full try/catch wrapper + deadline (`inject` 2000ms / capture 100ms) + unconditional `exit 0`; manual stdin parsing; bundle test for **zero external imports**.
+**Where**: `src/hooks/main.ts` + tests + build assertion
 **Depends on**: T2 · **Reuses**: fsx (builtins-only) · **Requirement**: OPS-01, OPS-05
 **Done when**:
-- [ ] Handler que lança/trava ⇒ exit 0 em ≤ deadline+margem; grep no bundle: nenhum `require`/`import` externo
+- [ ] A handler that throws/hangs ⇒ exit 0 within deadline+margin; grep the bundle: no external `require`/`import`
 **Tests**: unit + chaos-lite · **Gate**: quick + build
-**Commit**: `feat(hooks): entrypoint único fail-open bundlado`
+**Commit**: `feat(hooks): single bundled fail-open entrypoint`
 
-### T29: Diário de sessão [P] ✅
-**What**: `appendSignal(sessionsDir, sessionId, signal)` — JSONL `O_APPEND`, naming `<iso>.jsonl`, tipos `Signal` do design.
-**Where**: `src/core/capture/journal.ts` + testes
+### T29: Session journal [P] ✅
+**What**: `appendSignal(sessionsDir, sessionId, signal)` — JSONL `O_APPEND`, `<iso>.jsonl` naming, the design's `Signal` types.
+**Where**: `src/core/capture/journal.ts` + tests
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: CAP-01
 **Done when**:
-- [ ] Appends concorrentes não corrompem linhas (teste com N writers)
+- [ ] Concurrent appends do not corrupt lines (test with N writers)
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(capture): diário JSONL append-only`
+**Commit**: `feat(capture): append-only JSONL journal`
 
-### T30: Heurísticas de correção + redação [P] ✅
-**What**: `classifyPrompt(text, markers)` (markers do config) e `redact(text, maxLen=500)` com scrub de segredo antes de gravar no diário.
-**Where**: `src/core/capture/heuristics.ts` + testes
+### T30: Correction heuristics + redaction [P] ✅
+**What**: `classifyPrompt(text, markers)` (markers from the config) and `redact(text, maxLen=500)` with secret scrubbing before writing to the journal.
+**Where**: `src/core/capture/heuristics.ts` + tests
 **Depends on**: T20 · **Reuses**: secrets · **Requirement**: CAP-02, CAP-03
 **Done when**:
-- [ ] Marca "na verdade…"/"nunca…"; NÃO escreve em memória durável (só retorna sinal); prompt com token redigido
+- [ ] Marks "na verdade…"/"nunca…"; does NOT write to durable memory (only returns a signal); a prompt with a token is redacted
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(capture): heurística de correção que só marca`
+**Commit**: `feat(capture): correction heuristic that only marks`
 
-### T31: Detecção de recovery ✅
-**What**: `detectRecovery(journalPath, newCmd)` — tail bounded do diário da própria sessão; falha anterior + sucesso agora ⇒ sinal `recovery`.
-**Where**: `src/core/capture/recovery.ts` + testes
+### T31: Recovery detection ✅
+**What**: `detectRecovery(journalPath, newCmd)` — bounded tail of the session's own journal; a previous failure + a success now ⇒ a `recovery` signal.
+**Where**: `src/core/capture/recovery.ts` + tests
 **Depends on**: T29 · **Reuses**: journal · **Requirement**: CAP-02
 **Done when**:
-- [ ] Cenário falha→passa detecta; passa→passa não; tail limitado (não lê arquivo inteiro)
+- [ ] The fail→pass scenario is detected; pass→pass is not; the tail is bounded (does not read the whole file)
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(capture): sinal de comando recuperado`
+**Commit**: `feat(capture): recovered-command signal`
 
-### T32: Handlers de evento do hook ✅
-**What**: `inject` (reusa lógica do `memory context` — import direto do core, não subprocess), `capture-prompt`, `capture-tool`, `end` (grava sinal `session end`; spawn do runner entra na T40); resolução de projeto `CLAUDE_PROJECT_DIR` → `cwd` do payload; `cwd` sem `.lumem/` ⇒ descarta com log.
-**Where**: `src/hooks/handlers/*.ts` + testes integration (stdin fake)
-**Depends on**: T26, T28, T29, T30, T31 · **Reuses**: budget, journal, heuristics · **Requirement**: CAP-01..03, CONS-06 (parcial)
+### T32: Hook event handlers ✅
+**What**: `inject` (reuses the `memory context` logic — a direct core import, not a subprocess), `capture-prompt`, `capture-tool`, `end` (writes the `session end` signal; the runner spawn lands in T40); project resolution `CLAUDE_PROJECT_DIR` → the payload's `cwd`; a `cwd` without `.lumem/` ⇒ discarded with a log.
+**Where**: `src/hooks/handlers/*.ts` + integration tests (fake stdin)
+**Depends on**: T26, T28, T29, T30, T31 · **Reuses**: budget, journal, heuristics · **Requirement**: CAP-01..03, CONS-06 (partial)
 **Done when**:
-- [ ] Cada evento com payload real dos 2 harnesses (fixtures) produz sinal/stdout esperado; cwd órfão descartado
+- [ ] Each event with a real payload from both harnesses (fixtures) produces the expected signal/stdout; an orphaned cwd is discarded
 **Tests**: integration · **Gate**: full
 **Commit**: `feat(hooks): handlers inject/capture/end`
 
-### T33: Instalação de hooks por harness [P] ✅
-**What**: templates finais + wiring no install: Claude Code = bloco gerenciado em `.claude/settings.json` (merge-json); Codex = `.codex/hooks.json` (own-file; bloco se pré-existente); comandos apontam pro bundle absoluto.
-**Where**: `assets/harness/*/hooks.tmpl.json`, `src/core/install/hooks-config.ts` + testes
+### T33: Per-harness hook installation [P] ✅
+**What**: final templates + install wiring: Claude Code = managed block in `.claude/settings.json` (merge-json); Codex = `.codex/hooks.json` (own-file; a block if pre-existing); commands point at the absolute bundle.
+**Where**: `assets/harness/*/hooks.tmpl.json`, `src/core/install/hooks-config.ts` + tests
 **Depends on**: T14, T16, T28 · **Reuses**: managed-block, apply · **Requirement**: CONS-06, INST-05
 **Done when**:
-- [ ] Install em fake homes registra hooks nos formatos certos; settings.json de usuário com hooks próprios preservado; uninstall remove só o bloco lumem
+- [ ] Install into fake homes registers hooks in the right formats; a user settings.json with their own hooks is preserved; uninstall removes only the lumem block
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(install): registro de hooks nos dois harnesses`
+**Commit**: `feat(install): hook registration on both harnesses`
 
-### T34: Bench de latência (sequencial — bench não é parallel-safe) ✅
-**What**: `npm run bench:hook` — 100 execuções reais `node dist/lumem-hook.mjs codex capture-prompt < fixture`, p95 reportado; falha se ≥ 150ms; step de CI.
+### T34: Latency bench (sequential — bench is not parallel-safe) ✅
+**What**: `npm run bench:hook` — 100 real executions of `node dist/lumem-hook.mjs codex capture-prompt < fixture`, p95 reported; fails if ≥ 150ms; a CI step.
 **Where**: `scripts/bench-hook.mjs`
-**Depends on**: T32 · **Reuses**: bundle · **Requirement**: CAP-04
+**Depends on**: T32 · **Reuses**: the bundle · **Requirement**: CAP-04
 **Done when**:
-- [ ] p95 < 150ms na máquina de dev registrado; **Saída M3** checklist: sinais aparecem em diário real nos 2 harnesses (verificação manual em STATE)
+- [ ] p95 < 150ms on the dev machine recorded; **M3 exit** checklist: signals appear in a real journal on both harnesses (manual verification in STATE)
 **Tests**: bench · **Gate**: bench
-**Commit**: `test(hooks): bench p95 de latência`
+**Commit**: `test(hooks): p95 latency bench`
 
-## Fase 4 — M4
+## Phase 4 — M4
 
-### T35: Gate de consolidação [P] ✅
-**What**: `checkGate(state, journalPath, config)` — 4 condições (≥N sinais, ≥N min, ≥N h desde última, sem lock); barato (conta linhas, lê timestamps).
-**Where**: `src/core/consolidate/gate.ts` + testes
+### T35: Consolidation gate [P] ✅
+**What**: `checkGate(state, journalPath, config)` — 4 conditions (≥N signals, ≥N min, ≥N h since the last one, no lock); cheap (counts lines, reads timestamps).
+**Where**: `src/core/consolidate/gate.ts` + tests
 **Depends on**: T23, T29 · **Reuses**: state, journal · **Requirement**: CONS-01
 **Done when**:
-- [ ] Matriz 4 condições × pass/fail; motivo da recusa no resultado
+- [ ] 4 conditions × pass/fail matrix; the refusal reason is in the result
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(consolidate): gate de 4 condições`
+**Commit**: `feat(consolidate): 4-condition gate`
 
-### T36: Lock com TTL [P] ✅
-**What**: `acquireLock(localDir, ttlMin=30)` — `O_CREAT|O_EXCL` com `{pid, startedAt}`; stale (> TTL) removido e readquirido; `releaseLock`.
-**Where**: `src/core/consolidate/lock.ts` + testes (contenção com 2 processos)
+### T36: Lock with TTL [P] ✅
+**What**: `acquireLock(localDir, ttlMin=30)` — `O_CREAT|O_EXCL` with `{pid, startedAt}`; stale (> TTL) removed and re-acquired; `releaseLock`.
+**Where**: `src/core/consolidate/lock.ts` + tests (contention with 2 processes)
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: CONS-05
 **Done when**:
-- [ ] 2 aquisições concorrentes ⇒ exatamente 1 vence; stale readquirível
+- [ ] 2 concurrent acquisitions ⇒ exactly 1 wins; a stale lock is re-acquirable
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(consolidate): lock O_EXCL com stale TTL`
+**Commit**: `feat(consolidate): O_EXCL lock with stale TTL`
 
-### T37: Patch — schema + aplicação atômica [P] ✅
-**What**: zod schema `ConsolidationPatch`; `applyPatch(patch, stores)` — entrada inválida/com segredo descartada individualmente + logada; falha estrutural ⇒ nada muda; escrita via choke point do store.
-**Where**: `src/core/consolidate/patch.ts` + testes (fixtures válida/inválida/segredo/contradição)
+### T37: Patch — schema + atomic application [P] ✅
+**What**: zod schema `ConsolidationPatch`; `applyPatch(patch, stores)` — an invalid/secret-carrying entry is dropped individually + logged; a structural failure ⇒ nothing changes; writing goes through the store's choke point.
+**Where**: `src/core/consolidate/patch.ts` + tests (valid/invalid/secret/contradiction fixtures)
 **Depends on**: T21 · **Reuses**: store (T21) · **Requirement**: CONS-03, MEM-05, MEM-02
 **Done when**:
-- [ ] add/replace/remove aplicam com proveniência; patch não-parseável ⇒ memória byte-idêntica
+- [ ] add/replace/remove apply with provenance; an unparseable patch ⇒ memory byte-identical
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(consolidate): patch validado com aplicação atômica`
+**Commit**: `feat(consolidate): validated patch with atomic application`
 
-### T38: Skill lumem-consolidate final [P] ✅
-**What**: prompt completo: regras anti-lixo PRD §5.4, schema JSON do patch embutido com exemplos, instrução de compactação quando flags presentes.
+### T38: Final lumem-consolidate skill [P] ✅
+**What**: the complete prompt: PRD §5.4 anti-junk rules, the patch's JSON schema embedded with examples, compaction instruction when flags are present.
 **Where**: `assets/skills/lumem-consolidate/SKILL.md`
-**Depends on**: T8 · **Reuses**: schema T37 (copiado como texto) · **Requirement**: CONS-03
+**Depends on**: T8 · **Reuses**: T37's schema (copied as text) · **Requirement**: CONS-03
 **Done when**:
-- [ ] Schema no prompt == schema zod (teste que compara exemplo do prompt contra o zod real)
-**Tests**: unit (exemplo do prompt valida) · **Gate**: quick
-**Commit**: `feat(assets): prompt de consolidação com anti-lixo`
+- [ ] The schema in the prompt == the zod schema (a test comparing the prompt's example against the real zod)
+**Tests**: unit (the prompt's example validates) · **Gate**: quick
+**Commit**: `feat(assets): consolidation prompt with anti-junk rules`
 
-### T39: Runner desanexado ✅
-**What**: `runner/main.ts` → `lumem-runner.mjs`: re-checa gate, lock, monta prompt (skill + diário + memória atual), invoca `headless` do descritor (comando+modelFlag+defaultModel; runtime `auto` = harness da sessão), parseia, `applyPatch`, atualiza `state.json`, loga, libera lock.
-**Where**: `src/runner/main.ts` + testes integration (LLM = script mock no PATH)
-**Depends on**: T4, T35, T36, T37, T38 · **Reuses**: tudo da fase · **Requirement**: CONS-02, CONS-04
+### T39: Detached runner ✅
+**What**: `runner/main.ts` → `lumem-runner.mjs`: re-checks the gate, the lock, assembles the prompt (skill + journal + current memory), invokes the descriptor's `headless` (command+modelFlag+defaultModel; runtime `auto` = the session's harness), parses, `applyPatch`, updates `state.json`, logs, releases the lock.
+**Where**: `src/runner/main.ts` + integration tests (LLM = a mock script on the PATH)
+**Depends on**: T4, T35, T36, T37, T38 · **Reuses**: everything from the phase · **Requirement**: CONS-02, CONS-04
 **Done when**:
-- [ ] Mock devolve patch válido ⇒ memória atualizada; mock exit≠0/JSON inválido ⇒ memória intacta, lock liberado, log
+- [ ] The mock returns a valid patch ⇒ memory updated; the mock exits ≠0/returns invalid JSON ⇒ memory intact, lock released, logged
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(runner): consolidação headless desanexada`
+**Commit**: `feat(runner): detached headless consolidation`
 
-### T40: SessionEnd → spawn do runner ✅
-**What**: handler `end` ganha: gate pré-check barato ⇒ `spawn(execPath, [runner], {detached, stdio:'ignore'}).unref()`; hook retorna imediato.
-**Where**: `src/hooks/handlers/end.ts` (modif.) + teste
+### T40: SessionEnd → runner spawn ✅
+**What**: the `end` handler gains: a cheap gate pre-check ⇒ `spawn(execPath, [runner], {detached, stdio:'ignore'}).unref()`; the hook returns immediately.
+**Where**: `src/hooks/handlers/end.ts` (modified) + test
 **Depends on**: T32, T39 · **Reuses**: gate, runner · **Requirement**: CONS-02
 **Done when**:
-- [ ] Hook sai em < deadline com runner vivo (teste observa pidfile/efeito); gate reprovado ⇒ nenhum spawn
+- [ ] The hook exits in < the deadline with the runner alive (the test observes a pidfile/side effect); a failed gate ⇒ no spawn
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(hooks): disparo desanexado da consolidação`
+**Commit**: `feat(hooks): detached consolidation trigger`
 
 ### T41: `lumem memory consolidate` [P] ✅
-**What**: comando manual: `--force` (ignora gate, não o lock), `--dry-run` (imprime patch sem aplicar — roda LLM, avisa custo).
-**Where**: `src/cli/memory-consolidate.ts` + testes (mock LLM)
+**What**: the manual command: `--force` (skips the gate, not the lock), `--dry-run` (prints the patch without applying — it does run the LLM, warns about the cost).
+**Where**: `src/cli/memory-consolidate.ts` + tests (mock LLM)
 **Depends on**: T39 · **Reuses**: runner core · **Requirement**: CLI-09, CLI-10
 **Done when**:
-- [ ] `--force` consolida com gate reprovado; `--dry-run` deixa memória intacta e mostra patch
+- [ ] `--force` consolidates with a failed gate; `--dry-run` leaves memory intact and shows the patch
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(cli): consolidação manual com force e dry-run`
+**Commit**: `feat(cli): manual consolidation with force and dry-run`
 
-### T42: Compactação via flags [P] ✅
-**What**: runner inclui no prompt os arquivos com `CompactionFlag` + instrução de compactar; pós-aplicação limpa flags; resultado respeita soft limits.
-**Where**: `src/runner/main.ts` (modif.), `src/core/consolidate/patch.ts` (se necessário) + testes
+### T42: Compaction via flags [P] ✅
+**What**: the runner includes the files carrying a `CompactionFlag` in the prompt + the compaction instruction; after applying it clears the flags; the result respects the soft limits.
+**Where**: `src/runner/main.ts` (modified), `src/core/consolidate/patch.ts` (if needed) + tests
 **Depends on**: T23, T39 · **Reuses**: limits, runner · **Requirement**: MEM-04
 **Done when**:
-- [ ] Fixture acima do limite + mock compactador ⇒ arquivo volta pra dentro do limite, decisões/riscos preservados no fixture
+- [ ] An over-the-limit fixture + a compacting mock ⇒ the file returns within the limit, with decisions/risks preserved in the fixture
 **Tests**: integration · **Gate**: full
-**Commit**: `feat(consolidate): compactação disparada por soft limit`
+**Commit**: `feat(consolidate): compaction triggered by soft limit`
 
-### T43: Agent lumem-consolidator final [P] ✅
-**What**: definição do agente headless (modelo barato default, permissões mínimas, referência à skill de consolidação) nos formatos dos 2 harnesses.
+### T43: Final lumem-consolidator agent [P] ✅
+**What**: the headless agent definition (cheap model by default, minimal permissions, a reference to the consolidation skill) in both harnesses' formats.
 **Where**: `assets/agents/lumem-consolidator.md`
 **Depends on**: T8 · **Reuses**: — · **Requirement**: CONS-04
 **Done when**:
-- [ ] Instalável pelos 2 harnesses; **Saída M4** checklist manual em STATE após uso real
-**Tests**: none (dado) · **Gate**: build
+- [ ] Installable by both harnesses; **M4 exit** manual checklist in STATE after real use
+**Tests**: none (data) · **Gate**: build
 **Commit**: `feat(assets): agent consolidator`
 
-## Fase 5 — M5
+## Phase 5 — M5
 
-### T44: Suíte de chaos dos hooks [P] ✅
-**What**: injeção sistemática: exceção em cada handler, timeout, stdin malformado/vazio/gigante, disco cheio (mock fs), journal read-only ⇒ sempre exit 0 + log; cobre os 4 eventos.
+### T44: Hook chaos suite [P] ✅
+**What**: systematic injection: an exception in each handler, a timeout, malformed/empty/huge stdin, a full disk (mocked fs), a read-only journal ⇒ always exit 0 + a log; covers all 4 events.
 **Where**: `test/chaos/hooks.test.ts`
-**Depends on**: T32, T40 · **Reuses**: bundle real · **Requirement**: OPS-01
+**Depends on**: T32, T40 · **Reuses**: the real bundle · **Requirement**: OPS-01
 **Done when**:
-- [ ] Matriz eventos × falhas 100% exit 0; nenhum stderr não-intencional
+- [ ] Events × failures matrix 100% exit 0; no unintended stderr
 **Tests**: chaos · **Gate**: full
-**Commit**: `test(hooks): chaos fail-open completo`
+**Commit**: `test(hooks): complete fail-open chaos`
 
-### T45: Auditoria zero-rede [P] ✅
-**What**: teste estático (grep de `http`/`fetch`/`net` fora de install/sync) + runtime (roda doctor/status/memory/consolidate-mock com resolver DNS bloqueado) provando NFR-3.
+### T45: Zero-network audit [P] ✅
+**What**: a static test (grep for `http`/`fetch`/`net` outside install/sync) + a runtime one (runs doctor/status/memory/consolidate-mock with the DNS resolver blocked) proving NFR-3.
 **Where**: `test/no-network.test.ts`
 **Depends on**: T41 · **Reuses**: — · **Requirement**: OPS-02
 **Done when**:
-- [ ] Todos comandos runtime passam com rede bloqueada
+- [ ] All runtime commands pass with the network blocked
 **Tests**: integration · **Gate**: full
-**Commit**: `test: auditoria zero rede em runtime`
+**Commit**: `test: zero-network runtime audit`
 
-### T46: Rotação de log [P] ✅
-**What**: implementa rotação real no `log.ts` (tamanho máx + N arquivos), substituindo stub da T2.
-**Where**: `src/core/shared/log.ts` (modif.) + testes
+### T46: Log rotation [P] ✅
+**What**: implements real rotation in `log.ts` (max size + N files), replacing T2's stub.
+**Where**: `src/core/shared/log.ts` (modified) + tests
 **Depends on**: T2 · **Reuses**: fsx · **Requirement**: OPS-09
 **Done when**:
-- [ ] Log > limite rotaciona; máx N arquivos antigos
+- [ ] A log over the limit rotates; at most N old files
 **Tests**: unit · **Gate**: quick
-**Commit**: `feat(shared): rotação de log`
+**Commit**: `feat(shared): log rotation`
 
 ### T47: Packaging + zero-install [P] ✅
-**What**: `files` whitelist, `prepublishOnly`, bin permissions; validar `npm pack` + instalação do tarball + `npx` em dir limpo; publicar nome conforme decisão #1 (registrada na T1).
+**What**: `files` whitelist, `prepublishOnly`, bin permissions; validate `npm pack` + tarball installation + `npx` in a clean dir; publish the name per decision #1 (recorded in T1).
 **Where**: `package.json`, `scripts/verify-pack.sh`
 **Depends on**: T1, T41 · **Reuses**: — · **Requirement**: OPS-03
 **Done when**:
-- [ ] `npm pack` + install do tarball em tmp: `lumem doctor` funciona; tarball sem assets sobrando/faltando
+- [ ] `npm pack` + tarball install in tmp: `lumem doctor` works; the tarball has no leftover or missing assets
 **Tests**: integration (script) · **Gate**: build + script
 **Commit**: `chore: packaging npx-ready`
 
 ### T48: README + docs ✅
-**What**: README (quickstart, modelo de memória, modos degradados, uninstall), docs de config e troubleshooting; **Saída M5**: checklist de publicação.
+**What**: README (quickstart, memory model, degraded modes, uninstall), config and troubleshooting docs; **M5 exit**: publication checklist.
 **Where**: `README.md`, `docs/`
-**Depends on**: T44, T45, T46, T47 · **Reuses**: specs · **Requirement**: P3.1 AC4
+**Depends on**: T44, T45, T46, T47 · **Reuses**: the specs · **Requirement**: P3.1 AC4
 **Done when**:
-- [ ] Quickstart executável do zero por alguém de fora; seções cobrem os 4 tópicos
-**Tests**: none · **Gate**: full (regressão geral final)
-**Commit**: `docs: README e guia de uso`
+- [ ] Quickstart runnable from scratch by an outsider; the sections cover the 4 topics
+**Tests**: none · **Gate**: full (final general regression)
+**Commit**: `docs: README and usage guide`
 
 ---
 
 ## Diagram-Definition Cross-Check
 
-| Task | Depends on (corpo) | Diagrama | Status |
+| Task | Depends on (body) | Diagram | Status |
 |---|---|---|---|
-| T1 | — | raiz | ✅ |
+| T1 | — | root | ✅ |
 | T2 | T1 | T1→T2 | ✅ |
 | T3 | T1 | T1→T3 | ✅ |
 | T4 | T3 | T3→T4 | ✅ |
 | T5 | T2, T3 | T2→T5, T3→T5 | ✅ |
 | T6 | T3 | T3→T6 | ✅ |
-| T7 | T4, T5, T6 | convergem em T7 | ✅ |
+| T7 | T4, T5, T6 | converge on T7 | ✅ |
 | T8 | T1 | T1→T8 | ✅ |
 | T9 | T2 | T2→T9 | ✅ |
 | T10 | T2 | T2→T10 | ✅ |
-| T11 | T2, T8 | T2→T11 (*nota T8) | ✅ |
+| T11 | T2, T8 | T2→T11 (*T8 note) | ✅ |
 | T12 | T2 | T2→T12 | ✅ |
 | T13 | T11, T12 | T11,T12→T13 | ✅ |
 | T14 | T9, T10, T13 | T9,T10,T13→T14 | ✅ |
@@ -554,7 +554,7 @@ T1,T41 ──→ T47 [P]
 | T16 | T14, T15 | T14,T15→T16 | ✅ |
 | T17 | T16 | T16→T17 | ✅ |
 | T18 | T16 | T16→T18 | ✅ |
-| T19 | T12, T16 | T16→T19 (c/ T12) | ✅ |
+| T19 | T12, T16 | T16→T19 (w/ T12) | ✅ |
 | T20 | T2 | T2→T20 | ✅ |
 | T21 | T20 | T20→T21 | ✅ |
 | T22 | T21 | T21→T22 | ✅ |
@@ -562,36 +562,36 @@ T1,T41 ──→ T47 [P]
 | T24 | T21, T22 | T21,T22→T24 | ✅ |
 | T25 | T21 | T21→T25 | ✅ |
 | T26 | T22 | T22→T26 | ✅ |
-| T27 | T8, T26 | T26→T27 (c/ T8) | ✅ |
+| T27 | T8, T26 | T26→T27 (w/ T8) | ✅ |
 | T28 | T2 | T2→T28 | ✅ |
 | T29 | T2 | T2→T29 | ✅ |
 | T30 | T20 | T20→T30 | ✅ |
 | T31 | T29 | T29→T31 | ✅ |
-| T32 | T26, T28, T29, T30, T31 | convergem em T32 | ✅ |
+| T32 | T26, T28, T29, T30, T31 | converge on T32 | ✅ |
 | T33 | T14, T16, T28 | T14,T16,T28→T33 | ✅ |
 | T34 | T32 | T32→T34 | ✅ |
 | T35 | T23, T29 | T23,T29→T35 | ✅ |
 | T36 | T2 | T2→T36 | ✅ |
 | T37 | T21 | T21→T37 | ✅ |
 | T38 | T8 | T8→T38 | ✅ |
-| T39 | T4, T35, T36, T37, T38 | convergem em T39 | ✅ |
+| T39 | T4, T35, T36, T37, T38 | converge on T39 | ✅ |
 | T40 | T32, T39 | T32,T39→T40 | ✅ |
 | T41 | T39 | T39→T41 | ✅ |
-| T42 | T23, T39 | T39→T42 (c/ T23) | ✅ |
+| T42 | T23, T39 | T39→T42 (w/ T23) | ✅ |
 | T43 | T8 | T8→T43 | ✅ |
 | T44 | T32, T40 | T32,T40→T44 | ✅ |
 | T45 | T41 | T41→T45 | ✅ |
 | T46 | T2 | T2→T46 | ✅ |
 | T47 | T1, T41 | T1,T41→T47 | ✅ |
-| T48 | T44, T45, T46, T47 | convergem em T48 | ✅ |
+| T48 | T44, T45, T46, T47 | converge on T48 | ✅ |
 
-Tasks `[P]` da mesma fase: nenhuma depende de outra `[P]` irmã (T5 depende de T2 que é de fase anterior à sua execução paralela com T4/T6 — T2 conclui antes da janela paralela abrir). T34 sem `[P]` por bench não-parallel-safe. ✅
+`[P]` tasks in the same phase: none depends on another `[P]` sibling (T5 depends on T2, which belongs to a phase earlier than its parallel execution with T4/T6 — T2 finishes before the parallel window opens). T34 has no `[P]` because the bench is not parallel-safe. ✅
 
 ## Test Co-location Validation
 
-| Task | Camada | Matriz exige | Task diz | Status |
+| Task | Layer | Matrix requires | Task says | Status |
 |---|---|---|---|---|
-| T1 | infra/build | none | none (gate build+full) | ✅ |
+| T1 | infra/build | none | none (build+full gate) | ✅ |
 | T2 | core/shared | unit | unit | ✅ |
 | T3 | core/harness + adapters | unit | unit | ✅ |
 | T4 | adapters JSON | unit via schema | unit | ✅ |
@@ -599,28 +599,28 @@ Tasks `[P]` da mesma fase: nenhuma depende de outra `[P]` irmã (T5 depende de T
 | T7 | cli | integration | integration | ✅ |
 | T8 | assets | none | none | ✅ |
 | T9–T13 | core/install | unit | unit | ✅ |
-| T14 | core/install (I/O real) | unit→integration (maior) | integration | ✅ |
+| T14 | core/install (real I/O) | unit→integration (broader) | integration | ✅ |
 | T15–T19 | cli | integration | integration | ✅ |
 | T20–T23 | core | unit | unit | ✅ |
 | T24–T26 | cli | integration | integration | ✅ |
 | T27 | assets | none | none | ✅ |
-| T28 | hooks entry | unit+chaos | unit+chaos-lite (chaos completo T44) | ✅ |
+| T28 | hooks entry | unit+chaos | unit+chaos-lite (full chaos in T44) | ✅ |
 | T29–T31 | core/capture | unit | unit | ✅ |
 | T32 | hooks handlers | integration | integration | ✅ |
 | T33 | core/install + assets | integration | integration | ✅ |
 | T34 | bench | bench | bench | ✅ |
 | T35–T37 | core/consolidate | unit | unit | ✅ |
-| T38 | assets (c/ teste de schema) | none/unit | unit | ✅ |
+| T38 | assets (w/ schema test) | none/unit | unit | ✅ |
 | T39–T42 | runner + cli | integration | integration | ✅ |
 | T43 | assets | none | none | ✅ |
 | T44 | chaos | chaos | chaos | ✅ |
-| T45 | auditoria | integration | integration | ✅ |
+| T45 | audit | integration | integration | ✅ |
 | T46 | core/shared | unit | unit | ✅ |
 | T47 | packaging | script | integration script | ✅ |
-| T48 | docs | none | none (+full final) | ✅ |
+| T48 | docs | none | none (+final full) | ✅ |
 
-Nenhuma deferral de teste: T28 tem chaos-lite na criação e T44 amplia (não substitui — T28 já verifica exit 0 sozinho). ✅
+No test deferral: T28 has chaos-lite at creation time and T44 broadens it (it does not replace it — T28 already verifies exit 0 on its own). ✅
 
 ## Granularity Check
 
-48 tasks; cada uma = 1 módulo/1 comando/1 asset. Casos ⚠️ avaliados: T7 (esqueleto CLI + 2 comandos — coeso, é o bootstrap do commander), T32 (4 handlers — mesmo diretório, mesmo contrato de stdin, coeso), T39 (runner — 1 processo, 1 fluxo). Nenhum ❌.
+48 tasks; each one = 1 module/1 command/1 asset. ⚠️ cases evaluated: T7 (CLI skeleton + 2 commands — cohesive, it is the commander bootstrap), T32 (4 handlers — same directory, same stdin contract, cohesive), T39 (runner — 1 process, 1 flow). No ❌.

@@ -2,69 +2,69 @@
 
 **Spec**: [spec.md](spec.md) · **PRD**: [PRD.md](PRD.md)
 **Status**: Draft
-**Data**: 2026-08-07
+**Date**: 2026-08-07
 
 ---
 
-## 0. Research — fatos de harness verificados (2026-08-07)
+## 0. Research — verified harness facts (2026-08-07)
 
-Verificação contra docs oficiais e fonte (`anthropics/claude-code`, `openai/codex`). A tabela do PRD §7.1 estava parcialmente desatualizada; **estes fatos substituem o PRD** e alimentam os descritores de adapter.
+Verified against official docs and source (`anthropics/claude-code`, `openai/codex`). The PRD §7.1 table was partially out of date; **these facts supersede the PRD** and feed the adapter descriptors.
 
-| Fato | Claude Code | Codex CLI |
+| Fact | Claude Code | Codex CLI |
 |---|---|---|
-| Versão atual (congelar mínima em M0) | 2.1.224 | 0.147.0 |
-| Eventos de hook | 30+ (todos os necessários: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PostToolUse`, …) | **11** (não 5): inclui `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStart/Stop`, `PreCompact`, `PostCompact`, `PermissionRequest` |
-| Status dos hooks | Estável | **Estável, ligado por default** — flag `[features] hooks` (`codex_hooks` = alias deprecated). PRD dizia "experimental" |
-| Config de hook | `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json`; merge entre níveis; `timeout` por hook | `~/.codex/hooks.json` ou `[hooks]` em `config.toml` (user) e `.codex/hooks.json` ou `.codex/config.toml` (projeto); merge entre camadas |
-| Contexto no hook | stdin JSON (`session_id`, `cwd`, `transcript_path`, …) + env `CLAUDE_PROJECT_DIR` | stdin JSON com `cwd` presente; sem env vars de projeto |
-| **Injeção de contexto** | `SessionStart`/`UserPromptSubmit`: stdout em exit 0 vira contexto (ou JSON `hookSpecificOutput.additionalContext`, teto 10.000 chars) | **Igual: `SessionStart` stdout em exit 0 injeta contexto.** PRD assumia que não |
-| Trust de hook | — | Confirmado: hooks não-gerenciados exigem trust via `/hooks` (hash persistido); aviso no startup |
-| Windows hooks | Sim | **Sim** (`command_windows` por hook). PRD dizia não — V1 mantém Windows = skill-only por decisão de escopo, não por limitação de plataforma |
-| Skills (projeto / global) | `.claude/skills/` / `~/.claude/skills/` | **`.agents/skills/` / `~/.agents/skills/`** — `~/.codex/skills` é compat deprecated. PRD apontava `.codex/skills` |
-| Doc de projeto | `CLAUDE.md` | `AGENTS.md`, limite combinado 32 KiB default, configurável via `project_doc_max_bytes` |
-| Exit codes de hook | 0 = ok (stdout pode injetar); 2 = blocking (não usamos); outro ≠ 0 = aviso não-bloqueante | 0 = ok, mesmo modelo |
+| Current version (freeze as the minimum in M0) | 2.1.224 | 0.147.0 |
+| Hook events | 30+ (all the ones we need: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PostToolUse`, …) | **11** (not 5): includes `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStart/Stop`, `PreCompact`, `PostCompact`, `PermissionRequest` |
+| Hook status | Stable | **Stable, on by default** — flag `[features] hooks` (`codex_hooks` = deprecated alias). The PRD said "experimental" |
+| Hook config | `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json`; merged across levels; per-hook `timeout` | `~/.codex/hooks.json` or `[hooks]` in `config.toml` (user) and `.codex/hooks.json` or `.codex/config.toml` (project); merged across layers |
+| Context in the hook | stdin JSON (`session_id`, `cwd`, `transcript_path`, …) + env `CLAUDE_PROJECT_DIR` | stdin JSON with `cwd` present; no project env vars |
+| **Context injection** | `SessionStart`/`UserPromptSubmit`: stdout on exit 0 becomes context (or JSON `hookSpecificOutput.additionalContext`, 10,000-char ceiling) | **Same: `SessionStart` stdout on exit 0 injects context.** The PRD assumed it did not |
+| Hook trust | — | Confirmed: unmanaged hooks require trust via `/hooks` (hash persisted); warning at startup |
+| Windows hooks | Yes | **Yes** (`command_windows` per hook). The PRD said no — V1 keeps Windows = skill-only by scope decision, not by platform limitation |
+| Skills (project / global) | `.claude/skills/` / `~/.claude/skills/` | **`.agents/skills/` / `~/.agents/skills/`** — `~/.codex/skills` is deprecated compat. The PRD pointed at `.codex/skills` |
+| Project doc | `CLAUDE.md` | `AGENTS.md`, combined limit 32 KiB by default, configurable via `project_doc_max_bytes` |
+| Hook exit codes | 0 = ok (stdout may inject); 2 = blocking (we don't use it); any other ≠ 0 = non-blocking warning | 0 = ok, same model |
 
-**Consequências no design:**
-1. Injeção primária = **hook stdout nos dois harnesses**. A cadeia de fallback (§7.3 do PRD) permanece no descritor como dado, para harness futuro sem essa capacidade.
-2. Descritor do Codex corrigido: skills em `.agents/skills`, hooks estáveis sem flag.
-3. Teto de injeção default (4 KB) cabe folgado no limite de 10.000 chars do Claude Code.
+**Design consequences:**
+1. Primary injection = **hook stdout on both harnesses**. The fallback chain (PRD §7.3) stays in the descriptor as data, for a future harness without that capability.
+2. Codex descriptor corrected: skills in `.agents/skills`, hooks stable with no flag.
+3. The default injection ceiling (4 KB) fits comfortably inside Claude Code's 10,000-char limit.
 
 ---
 
 ## Architecture Overview
 
-Quatro camadas. `core/` é 100% agnóstico de harness (princípio 5): tudo que é específico entra por **descritor JSON** (dados) e **templates em `assets/`** (dados). Hooks são entrypoints finos e bundlados que chamam `core/`.
+Four layers. `core/` is 100% harness-agnostic (principle 5): everything harness-specific enters as a **JSON descriptor** (data) and **templates in `assets/`** (data). Hooks are thin, bundled entrypoints that call into `core/`.
 
 ```mermaid
 graph TD
-    subgraph "Superfícies"
-        CLI["src/cli/ — comandos commander"]
-        HOOK["dist/lumem-hook.mjs — entrypoint único, bundle sem deps"]
-        RUNNER["dist/lumem-runner.mjs — consolidação desanexada"]
+    subgraph "Surfaces"
+        CLI["src/cli/ — commander commands"]
+        HOOK["dist/lumem-hook.mjs — single entrypoint, dep-free bundle"]
+        RUNNER["dist/lumem-runner.mjs — detached consolidation"]
     end
 
-    subgraph "core/ (agnóstico de harness)"
-        HARN["core/harness — carrega descritores, detecta, resolve OperatingMode"]
-        INST["core/install — manifest, lockfile, blocos gerenciados, backup, drift"]
-        MEM["core/memory — fatos, proveniência, orçamento, scrub, compactação"]
-        CAP["core/capture — sinais, diário JSONL, heurísticas"]
+    subgraph "core/ (harness-agnostic)"
+        HARN["core/harness — loads descriptors, detects, resolves OperatingMode"]
+        INST["core/install — manifest, lockfile, managed blocks, backup, drift"]
+        MEM["core/memory — facts, provenance, budget, scrub, compaction"]
+        CAP["core/capture — signals, JSONL journal, heuristics"]
         CONS["core/consolidate — gate, lock, spawn, patch"]
     end
 
-    subgraph "Dados (não código)"
-        ADP["src/adapters/*.json — descritores"]
-        AST["assets/ — skills, agent, templates de hook-config"]
+    subgraph "Data (not code)"
+        ADP["src/adapters/*.json — descriptors"]
+        AST["assets/ — skills, agent, hook-config templates"]
     end
 
-    subgraph "Disco"
+    subgraph "Disk"
         PROJ["<repo>/.lumem/ — memory/, local/, config"]
-        GLOB["~/.lumem/ — preference, correction global"]
-        HFILES["arquivos dos harnesses — settings.json, hooks.json, CLAUDE.md, AGENTS.md"]
+        GLOB["~/.lumem/ — global preference, correction"]
+        HFILES["harness files — settings.json, hooks.json, CLAUDE.md, AGENTS.md"]
     end
 
     CLI --> HARN & INST & MEM & CONS
     HOOK --> CAP & MEM
-    HOOK -- "SessionEnd: spawn desanexado" --> RUNNER
+    HOOK -- "SessionEnd: detached spawn" --> RUNNER
     RUNNER --> CONS
     CONS --> MEM
     HARN --> ADP
@@ -74,160 +74,160 @@ graph TD
     CAP --> PROJ
 ```
 
-Ciclo de vida da consolidação (o único fluxo com sutileza de processo):
+Consolidation lifecycle (the only flow with process subtlety):
 
 ```mermaid
 sequenceDiagram
     participant H as Harness (SessionEnd)
     participant HK as lumem-hook.mjs
-    participant R as lumem-runner.mjs (desanexado)
+    participant R as lumem-runner.mjs (detached)
     participant LLM as claude -p / codex exec
     participant M as .lumem/memory/*
 
     H->>HK: stdin JSON (sessionId, cwd)
-    HK->>HK: gate pré-check barato (contagem de sinais, timestamps)
-    alt gate passa
+    HK->>HK: cheap gate pre-check (signal count, timestamps)
+    alt gate passes
         HK->>R: spawn(detached, unref)
     end
-    HK-->>H: exit 0 imediato (nunca bloqueia)
-    R->>R: re-checa gate + adquire lock (O_EXCL, TTL 30min)
-    R->>LLM: prompt lumem-consolidate + diário + memória atual
-    LLM-->>R: patch JSON {add, replace, remove}
-    R->>R: valida schema + scrub de segredos
-    R->>M: aplica atômico (tmp + rename); falhou = nada muda
-    R->>R: libera lock, loga, atualiza state.json
+    HK-->>H: immediate exit 0 (never blocks)
+    R->>R: re-checks gate + acquires lock (O_EXCL, TTL 30min)
+    R->>LLM: lumem-consolidate prompt + journal + current memory
+    LLM-->>R: JSON patch {add, replace, remove}
+    R->>R: validates schema + scrubs secrets
+    R->>M: applies atomically (tmp + rename); on failure nothing changes
+    R->>R: releases lock, logs, updates state.json
 ```
 
 ---
 
 ## Code Reuse Analysis
 
-Greenfield — reuso = escolhas de ecossistema, minimizadas por NFR-5/6 (zero dep nativa, hook bundle único e magro).
+Greenfield — reuse = ecosystem choices, minimized by NFR-5/6 (zero native deps, single lean hook bundle).
 
-| Dependência | Uso | Por quê |
+| Dependency | Used in | Why |
 |---|---|---|
-| `commander` | `src/cli/` apenas | Ubíquo, zero deps transitivos, tipos TS |
-| `zod` | CLI + runner apenas — **nunca no hook bundle** | Validação de descritor, config, lockfile, patch do LLM |
-| `tsup` (dev) | Build multi-entry | Gera `cli.js`, `lumem-hook.mjs`, `lumem-runner.mjs` como bundles únicos (NFR-6) |
-| `vitest` (dev) | Testes | Rápido, ESM nativo |
-| `@biomejs/biome` (dev) | Lint + format | Ferramenta única, sem config extensa |
-| node builtins | Todo o resto | `fs`, `crypto` (hash de fato/lockfile), `child_process` (spawn), `path`, `os` |
+| `commander` | `src/cli/` only | Ubiquitous, zero transitive deps, TS types |
+| `zod` | CLI + runner only — **never in the hook bundle** | Validation of descriptor, config, lockfile, LLM patch |
+| `tsup` (dev) | Multi-entry build | Produces `cli.js`, `lumem-hook.mjs`, `lumem-runner.mjs` as single bundles (NFR-6) |
+| `vitest` (dev) | Tests | Fast, native ESM |
+| `@biomejs/biome` (dev) | Lint + format | One tool, no sprawling config |
+| node builtins | Everything else | `fs`, `crypto` (fact/lockfile hashing), `child_process` (spawn), `path`, `os` |
 
-**Deliberadamente sem dependência:** lock de arquivo (O_EXCL feito à mão), cores no terminal, parser TOML de leitura não é necessário na V1 (escrita de hook-config do Codex usa `hooks.json`, não `config.toml` — ver Tech Decisions), scanner de segredos (regex + entropia próprios).
+**Deliberately without a dependency:** file locking (O_EXCL by hand), terminal colors, a read-only TOML parser is not needed in V1 (Codex hook-config writing uses `hooks.json`, not `config.toml` — see Tech Decisions), secret scanner (our own regex + entropy).
 
 ### Integration Points
 
-| Sistema | Método |
+| System | Method |
 |---|---|
-| Claude Code | Hooks via bloco gerenciado em `.claude/settings.json`; skills por symlink em `.claude/skills/`; contexto opcional em `CLAUDE.md` (bloco gerenciado) |
-| Codex | Hooks via `.codex/hooks.json` (arquivo próprio quando não existe; bloco gerenciado se pré-existente); skills por symlink em `.agents/skills/`; `AGENTS.md` (bloco gerenciado, respeitando 32 KiB) |
-| LLM headless | Template `headless` do descritor: `claude -p` / `codex exec`; prompt via stdin; resposta JSON |
-| Git | `.lumem/.gitignore` gerado cobrindo `local/`; memória de projeto commitável |
+| Claude Code | Hooks via a managed block in `.claude/settings.json`; skills symlinked into `.claude/skills/`; optional context in `CLAUDE.md` (managed block) |
+| Codex | Hooks via `.codex/hooks.json` (own file when it doesn't exist; managed block if pre-existing); skills symlinked into `.agents/skills/`; `AGENTS.md` (managed block, respecting 32 KiB) |
+| Headless LLM | The descriptor's `headless` template: `claude -p` / `codex exec`; prompt via stdin; JSON response |
+| Git | `.lumem/.gitignore` generated covering `local/`; project memory committable |
 
 ---
 
 ## Components
 
-### core/harness — engine de detecção e modo
+### core/harness — detection and mode engine
 
-- **Purpose**: carregar/validar descritores, detectar harnesses, resolver modo de operação com fallbacks.
+- **Purpose**: load/validate descriptors, detect harnesses, resolve the operating mode with fallbacks.
 - **Location**: `src/core/harness/`
 - **Interfaces**:
-  - `loadDescriptors(dir: string): AdapterDescriptor[]` — parse + zod; descritor inválido → erro nomeando campo, harness excluído (HARN-02)
-  - `detect(d: AdapterDescriptor): DetectionResult` — avalia regras `dir` | `bin` | `file`; inclui versão via `--version` quando `bin` presente
-  - `resolveMode(d: AdapterDescriptor, det: DetectionResult): OperatingMode` — capacidades ausentes ⇒ fallback declarado; nunca "some", degrada (HARN-03)
+  - `loadDescriptors(dir: string): AdapterDescriptor[]` — parse + zod; an invalid descriptor → an error naming the field, harness excluded (HARN-02)
+  - `detect(d: AdapterDescriptor): DetectionResult` — evaluates `dir` | `bin` | `file` rules; includes the version via `--version` when a `bin` is present
+  - `resolveMode(d: AdapterDescriptor, det: DetectionResult): OperatingMode` — missing capabilities ⇒ the declared fallback; it never "disappears", it degrades (HARN-03)
 - **Dependencies**: zod, node builtins.
 - **Reuses**: —
 
-### core/install — instalador transacional
+### core/install — transactional installer
 
-- **Purpose**: levar o disco ao estado declarado no manifest, reversível e idempotente.
+- **Purpose**: bring the disk to the state declared in the manifest, reversibly and idempotently.
 - **Location**: `src/core/install/`
 - **Interfaces**:
-  - `plan(manifest, lock, modes, opts): InstallPlan` — diff desejado × lockfile × disco; puro, sem I/O de escrita (é o que `--dry-run` imprime)
-  - `apply(plan, opts): ApplyReport` — executa; cada ação loga no lockfile
-  - `upsertManagedBlock(file, content, markers): BlockResult` — só toca entre `<!-- lumem:start -->` / `<!-- lumem:end -->` (INST-05); cria arquivo se ausente
-  - `removeManagedBlock(file): void` — restaura estado sem bloco
-  - `backupOnce(path): string` — cópia timestampada em `.lumem/local/backups/<ts>/<relpath>` antes da 1ª escrita (INST-06)
-  - `detectDrift(lock, disk): DriftReport` — hash real ≠ hash do lockfile (INST-04)
+  - `plan(manifest, lock, modes, opts): InstallPlan` — diff of desired × lockfile × disk; pure, no write I/O (this is what `--dry-run` prints)
+  - `apply(plan, opts): ApplyReport` — executes; every action is logged in the lockfile
+  - `upsertManagedBlock(file, content, markers): BlockResult` — touches only between `<!-- lumem:start -->` / `<!-- lumem:end -->` (INST-05); creates the file if absent
+  - `removeManagedBlock(file): void` — restores the state without the block
+  - `backupOnce(path): string` — timestamped copy in `.lumem/local/backups/<ts>/<relpath>` before the 1st write (INST-06)
+  - `detectDrift(lock, disk): DriftReport` — real hash ≠ lockfile hash (INST-04)
 - **Dependencies**: core/harness (modes), assets.
 - **Reuses**: —
 
-### core/memory — armazenamento e orçamento
+### core/memory — storage and budget
 
-- **Purpose**: ler/escrever fatos com proveniência, montar bloco de injeção dentro do orçamento, recusar segredos.
+- **Purpose**: read/write facts with provenance, assemble the injection block within budget, refuse secrets.
 - **Location**: `src/core/memory/`
 - **Interfaces**:
-  - `readStore(scope: Scope): MemoryStore` — parser tolerante: entrada malformada é pulada e logada, nunca crash
+  - `readStore(scope: Scope): MemoryStore` — tolerant parser: a malformed entry is skipped and logged, never a crash
   - `addFact(store, fact): void` / `removeFact(store, factId): boolean` / `search(stores, q): Fact[]`
-  - `writeStore(store): void` — atômico (tmp + rename); **único choke point de escrita durável** — `scanSecrets` roda aqui, cobrindo `memory add` manual E patch da consolidação (MEM-05)
-  - `buildInjection(stores, budgetBytes): string` — prioridade: corrections recentes → project (decisões/riscos) → preference; trunca por entrada inteira, nunca no meio (MEM-03)
-  - `scanSecrets(text): SecretHit[]` — regexes (AKIA…, PEM headers, JWT, `KEY=` com valor de alta entropia ≥ 20 chars) + Shannon entropy
-  - `checkSoftLimits(store, config): CompactionFlag[]` — marca em `state.json` (MEM-04)
+  - `writeStore(store): void` — atomic (tmp + rename); **the single choke point for durable writes** — `scanSecrets` runs here, covering both manual `memory add` AND the consolidation patch (MEM-05)
+  - `buildInjection(stores, budgetBytes): string` — priority: recent corrections → project (decisions/risks) → preference; truncates whole entries, never mid-entry (MEM-03)
+  - `scanSecrets(text): SecretHit[]` — regexes (AKIA…, PEM headers, JWT, `KEY=` with a high-entropy value ≥ 20 chars) + Shannon entropy
+  - `checkSoftLimits(store, config): CompactionFlag[]` — flags in `state.json` (MEM-04)
   - `ensureGitignore(lumemDir): void` (MEM-06)
-- **Fato → ID**: `sha256(corpo normalizado)[0:8]`. Derivado, não armazenado — o formato em disco fica exatamente o do PRD §5.3; `memory list` exibe o id calculado; `forget <id>` resolve por ele.
+- **Fact → ID**: `sha256(normalized body)[0:8]`. Derived, not stored — the on-disk format stays exactly the one from PRD §5.3; `memory list` shows the computed id; `forget <id>` resolves against it.
 - **Dependencies**: node builtins.
 - **Reuses**: —
 
-### core/capture — sinais e diário
+### core/capture — signals and journal
 
-- **Purpose**: transformar eventos de hook em sinais tipados apendados no diário da sessão. Sem LLM, sem escrita durável (CAP-01, CAP-03).
+- **Purpose**: turn hook events into typed signals appended to the session journal. No LLM, no durable writes (CAP-01, CAP-03).
 - **Location**: `src/core/capture/`
 - **Interfaces**:
-  - `appendSignal(sessionsDir, sessionId, signal): void` — JSONL, `O_APPEND`, uma linha por sinal
-  - `classifyPrompt(text, markers): string | null` — heurística de correção; marcadores vêm do config (default: "na verdade", "não, faz", "sempre que", "nunca", "actually", "no, do", "always", "never")
-  - `detectRecovery(journalTail, newCmd): Signal | null` — comando que falhou antes e agora passou; lê só o tail bounded do próprio diário (sem estado extra)
-  - `redact(text, maxLen): string` — trunca prompt (default 500 chars) e scrub de segredo antes de gravar no diário
-- **Dependencies**: node builtins. **Nunca zod** (roda no hook path).
-- **Reuses**: `scanSecrets` de core/memory (função compartilhada, extraída para `core/shared/secrets.ts`).
+  - `appendSignal(sessionsDir, sessionId, signal): void` — JSONL, `O_APPEND`, one line per signal
+  - `classifyPrompt(text, markers): string | null` — correction heuristic; markers come from the config (default: "na verdade", "não, faz", "sempre que", "nunca", "actually", "no, do", "always", "never")
+  - `detectRecovery(journalTail, newCmd): Signal | null` — a command that failed before and passes now; reads only a bounded tail of the journal itself (no extra state)
+  - `redact(text, maxLen): string` — truncates the prompt (default 500 chars) and scrubs secrets before writing to the journal
+- **Dependencies**: node builtins. **Never zod** (it runs on the hook path).
+- **Reuses**: `scanSecrets` from core/memory (shared function, extracted to `core/shared/secrets.ts`).
 
 ### core/consolidate — gate, lock, patch
 
-- **Purpose**: decidir se consolida, rodar o LLM headless desanexado, aplicar patch atômico.
+- **Purpose**: decide whether to consolidate, run the detached headless LLM, apply the patch atomically.
 - **Location**: `src/core/consolidate/`
 - **Interfaces**:
-  - `checkGate(state, journal, config): GateResult` — 4 condições do PRD §6 (CONS-01); barato o suficiente pro hook path
-  - `acquireLock(localDir, ttlMin): Lock | null` — `open(O_CREAT|O_EXCL)` com `{pid, startedAt}`; lock mais velho que TTL = stale, removido e readquirido (CONS-05)
+  - `checkGate(state, journal, config): GateResult` — the 4 conditions from PRD §6 (CONS-01); cheap enough for the hook path
+  - `acquireLock(localDir, ttlMin): Lock | null` — `open(O_CREAT|O_EXCL)` with `{pid, startedAt}`; a lock older than the TTL is stale, removed and re-acquired (CONS-05)
   - `spawnRunner(runnerPath, args): void` — `spawn(process.execPath, […], {detached: true, stdio: 'ignore'}).unref()` (CONS-02)
-  - `runConsolidation(ctx): Report` — corpo do runner: re-checa gate, lock, monta prompt (skill lumem-consolidate + diário + memória), invoca `headless` do descritor, parseia
-  - `applyPatch(patch, stores): PatchReport` — zod-validado; **tudo ou nada**: qualquer entrada inválida ou com segredo ⇒ entrada descartada e logada; falha estrutural ⇒ memória intacta
-- **Dependencies**: core/memory, zod (runner apenas).
-- **Reuses**: descritor `headless` de core/harness.
+  - `runConsolidation(ctx): Report` — the runner's body: re-checks the gate, the lock, assembles the prompt (lumem-consolidate skill + journal + memory), invokes the descriptor's `headless`, parses
+  - `applyPatch(patch, stores): PatchReport` — zod-validated; **all or nothing**: any invalid entry or one carrying a secret ⇒ the entry is dropped and logged; a structural failure ⇒ memory untouched
+- **Dependencies**: core/memory, zod (runner only).
+- **Reuses**: the `headless` descriptor from core/harness.
 
-### hooks — entrypoint único bundlado
+### hooks — single bundled entrypoint
 
-- **Purpose**: ponte harness → core com fail-open absoluto.
-- **Location**: `src/hooks/main.ts` → `dist/lumem-hook.mjs` (bundle único, só builtins)
-- **Contrato de invocação**: `node lumem-hook.mjs <harnessId> <lumemEvent>`; payload no stdin. Eventos lumem: `inject` (SessionStart), `capture-prompt` (UserPromptSubmit), `capture-tool` (PostToolUse), `end` (SessionEnd).
-- **Wrapper fail-open** (OPS-01, NFR-1/2):
+- **Purpose**: bridge harness → core with absolute fail-open.
+- **Location**: `src/hooks/main.ts` → `dist/lumem-hook.mjs` (single bundle, builtins only)
+- **Invocation contract**: `node lumem-hook.mjs <harnessId> <lumemEvent>`; payload on stdin. lumem events: `inject` (SessionStart), `capture-prompt` (UserPromptSubmit), `capture-tool` (PostToolUse), `end` (SessionEnd).
+- **Fail-open wrapper** (OPS-01, NFR-1/2):
   ```ts
-  // pseudo — todo evento roda dentro disto
+  // pseudo — every event runs inside this
   const deadline = event === 'inject' ? 2000 : 100 // ms
   try {
     const out = await Promise.race([handle(event, stdin), timeout(deadline)])
-    if (out) process.stdout.write(out)   // só inject produz stdout
-  } catch (e) { appendLog(e) }           // log em local/, nunca stderr barulhento
-  process.exit(0)                        // SEMPRE, sem exceção
+    if (out) process.stdout.write(out)   // only inject produces stdout
+  } catch (e) { appendLog(e) }           // log to local/, never noisy stderr
+  process.exit(0)                        // ALWAYS, no exception
   ```
-- **Resolução de projeto**: `CLAUDE_PROJECT_DIR` se presente, senão `cwd` do payload stdin (fallback declarado no descritor).
-- **Dependencies**: nenhuma externa. Validação de stdin feita à mão (é um objeto raso).
+- **Project resolution**: `CLAUDE_PROJECT_DIR` when present, otherwise the payload's stdin `cwd` (fallback declared in the descriptor).
+- **Dependencies**: none external. stdin validation done by hand (it is a shallow object).
 
-### cli — comandos
+### cli — commands
 
-- **Purpose**: superfície humana; comandos finos que chamam core e formatam.
+- **Purpose**: the human surface; thin commands that call core and format.
 - **Location**: `src/cli/`
-- **Interfaces**: um módulo por comando (`init`, `install`, `sync`, `uninstall`, `status`, `doctor`, `memory/*`). Todos aceitam `--json` (leitura) e `--dry-run` (escrita) via contexto global (CLI-10/11).
-- **Exit codes**: `0` ok · `1` erro de runtime · `3` drift/incompatibilidade detectada (para `doctor`/`sync` em CI).
-- **Dependencies**: commander + todo o core.
+- **Interfaces**: one module per command (`init`, `install`, `sync`, `uninstall`, `status`, `doctor`, `memory/*`). All accept `--json` (read) and `--dry-run` (write) via the global context (CLI-10/11).
+- **Exit codes**: `0` ok · `1` runtime error · `3` drift/incompatibility detected (for `doctor`/`sync` in CI).
+- **Dependencies**: commander + all of core.
 
-### assets — artefatos instaláveis (dados)
+### assets — installable artifacts (data)
 
 - **Location**: `assets/`
-- Conteúdo:
-  - `skills/lumem-memory/SKILL.md` — contrato de leitura/escrita durante a sessão (MEM-07); inclui instrução de injeção para modo degradado
-  - `skills/lumem-consolidate/SKILL.md` — prompt de consolidação com regras anti-lixo do PRD §5.4 + **schema JSON do patch embutido** (CONS-03)
-  - `agents/lumem-consolidator.md` — definição do agente headless, modelo barato default (CONS-04)
-  - `harness/<id>/hooks.tmpl.json` — template de config de hook por harness (dado, não código)
+- Contents:
+  - `skills/lumem-memory/SKILL.md` — the read/write contract during a session (MEM-07); includes the injection instruction for degraded mode
+  - `skills/lumem-consolidate/SKILL.md` — the consolidation prompt with the anti-junk rules from PRD §5.4 + **the patch's JSON schema embedded** (CONS-03)
+  - `agents/lumem-consolidator.md` — definition of the headless agent, cheap model by default (CONS-04)
+  - `harness/<id>/hooks.tmpl.json` — hook-config template per harness (data, not code)
 
 ---
 
@@ -237,15 +237,15 @@ Greenfield — reuso = escolhas de ecossistema, minimizadas por NFR-5/6 (zero de
 
 ```typescript
 type DetectRule =
-  | { type: 'dir'; path: string }          // "~" expandido
+  | { type: 'dir'; path: string }          // "~" expanded
   | { type: 'bin'; name: string; versionArgs?: string[] }
   | { type: 'file'; path: string }
 
 type InjectionMechanism = 'hook-stdout' | 'context-doc-block' | 'skill-instruction'
 
 interface AdapterDescriptor {
-  id: string                               // 'claude-code' | 'codex' | futuro
-  minVersion: string                       // congelada; doctor compara
+  id: string                               // 'claude-code' | 'codex' | future
+  minVersion: string                       // frozen; doctor compares
   detect: DetectRule[]
   paths: {
     home: string                           // '~/.claude' | '~/.codex'
@@ -254,7 +254,7 @@ interface AdapterDescriptor {
       scope: 'project' | 'global'
       path: string                         // '.claude/settings.json' | '.codex/hooks.json'
       format: 'json'
-      strategy: 'merge-json' | 'own-file'  // settings.json = merge; hooks.json ausente = own-file
+      strategy: 'merge-json' | 'own-file'  // settings.json = merge; hooks.json absent = own-file
     }[]
     contextDoc?: { project: string; maxBytes: number }  // 'CLAUDE.md' | 'AGENTS.md'
   }
@@ -266,23 +266,23 @@ interface AdapterDescriptor {
     'hooks.envProjectDir': boolean
     'hooks.requiresTrust': boolean
     'hooks.stdoutInjection': boolean
-    'platform.windows': boolean            // suporte do harness; V1 instala skill-only no Windows mesmo assim
+    'platform.windows': boolean            // harness support; V1 installs skill-only on Windows regardless
   }
   eventMap: Partial<Record<'inject' | 'capturePrompt' | 'captureTool' | 'end', string>>
-  injection: InjectionMechanism[]          // ordem de preferência; primeiro suportado vence
+  injection: InjectionMechanism[]          // preference order; the first supported one wins
   headless: {
     command: string[]                      // ['claude', '-p', '--output-format', 'json'] | ['codex', 'exec']
     promptVia: 'stdin' | 'arg'
     modelFlag?: string                     // '--model'
-    defaultModel?: string                  // barato
+    defaultModel?: string                  // cheap
   }
 }
 ```
 
-Descritores V1 (conteúdo, com fatos verificados §0):
+V1 descriptors (content, with the verified facts from §0):
 
 ```jsonc
-// claude-code.json (essência)
+// claude-code.json (essence)
 { "id": "claude-code", "minVersion": "2.1.224",
   "detect": [{ "type": "dir", "path": "~/.claude" }, { "type": "bin", "name": "claude" }],
   "paths": {
@@ -298,7 +298,7 @@ Descritores V1 (conteúdo, com fatos verificados §0):
   "injection": ["hook-stdout", "skill-instruction"],
   "headless": { "command": ["claude", "-p", "--output-format", "json"], "promptVia": "stdin", "modelFlag": "--model", "defaultModel": "haiku" } }
 
-// codex.json (essência — corrigido vs PRD)
+// codex.json (essence — corrected vs the PRD)
 { "id": "codex", "minVersion": "0.147.0",
   "detect": [{ "type": "dir", "path": "~/.codex" }, { "type": "bin", "name": "codex" }],
   "paths": {
@@ -315,11 +315,11 @@ Descritores V1 (conteúdo, com fatos verificados §0):
   "headless": { "command": ["codex", "exec"], "promptVia": "stdin", "modelFlag": "--model" } }
 ```
 
-### Fact (formato em disco = PRD §5.3, sem alteração)
+### Fact (on-disk format = PRD §5.3, unchanged)
 
 ```typescript
 interface Fact {
-  id: string            // sha256(normalize(body))[0..8] — DERIVADO na leitura, não gravado
+  id: string            // sha256(normalize(body))[0..8] — DERIVED on read, not written
   date: string          // YYYY-MM-DD
   body: string
   src: string           // 'sess_<id>' | 'manual'
@@ -327,22 +327,22 @@ interface Fact {
   type: 'project' | 'preference' | 'correction'
   scope: 'project' | 'global'
 }
-// serialização: "- [2026-08-07] corpo…\n  <!-- src:sess_a1b2 conf:high -->"
+// serialization: "- [2026-08-07] body…\n  <!-- src:sess_a1b2 conf:high -->"
 ```
 
-### Signal (diário JSONL — uma linha cada)
+### Signal (JSONL journal — one line each)
 
 ```typescript
 type Signal =
   | { t: 'session'; ts: string; ev: 'start' | 'end'; harness: string; sessionId: string; cwd: string }
   | { t: 'file'; ts: string; path: string; tool: string }
-  | { t: 'cmd'; ts: string; cmd: string; exit: number }              // cmd redigido/truncado
-  | { t: 'recovery'; ts: string; failed: string; passed: string }    // armadilha aprendida
-  | { t: 'correction'; ts: string; marker: string; prompt: string }  // prompt truncado 500 chars + scrub
+  | { t: 'cmd'; ts: string; cmd: string; exit: number }              // cmd redacted/truncated
+  | { t: 'recovery'; ts: string; failed: string; passed: string }    // learned trap
+  | { t: 'correction'; ts: string; marker: string; prompt: string }  // prompt truncated to 500 chars + scrubbed
   | { t: 'memory-op'; ts: string; op: 'add' | 'forget'; factId?: string }
 ```
 
-### ConsolidationPatch (contrato com o LLM — zod-validado no runner)
+### ConsolidationPatch (the contract with the LLM — zod-validated in the runner)
 
 ```typescript
 interface ConsolidationPatch {
@@ -351,8 +351,8 @@ interface ConsolidationPatch {
   replace: { targetId: string; body: string; conf: 'low' | 'medium' | 'high' }[]
   remove:  { targetId: string; reason: string }[]
 }
-// compactação NÃO é campo separado: é um patch com muitos remove/replace,
-// disparado quando state.json tem CompactionFlag para o arquivo
+// compaction is NOT a separate field: it is a patch with many remove/replace,
+// triggered when state.json holds a CompactionFlag for the file
 ```
 
 ### Manifest / Lockfile
@@ -361,24 +361,24 @@ interface ConsolidationPatch {
 interface ManifestArtifact {
   id: string
   kind: 'skill' | 'agent' | 'hook-bundle' | 'hook-config' | 'context-block'
-  version: string                          // versão do pacote lumem
-  srcPath: string                          // relativo a assets/ ou dist/
-  hash: string                             // sha256 do conteúdo
+  version: string                          // version of the lumem package
+  srcPath: string                          // relative to assets/ or dist/
+  hash: string                             // sha256 of the content
   dest: { harness: string; scope: 'project' | 'global'; relPath: string }
 }
 
 interface LockEntry {
   artifactId: string
   installedAt: string                      // ISO
-  destPath: string                         // absoluto resolvido
-  hash: string                             // do conteúdo instalado
+  destPath: string                         // resolved absolute
+  hash: string                             // of the installed content
   mode: 'symlink' | 'copy'
-  backupPath?: string                      // 1º backup, se houve
+  backupPath?: string                      // 1st backup, if there was one
 }
 // lumem-lock.json = { version: 1, entries: LockEntry[] }
 ```
 
-### LumemConfig (`lumem.config.json` projeto; `~/.lumem/config.json` global)
+### LumemConfig (`lumem.config.json` project; `~/.lumem/config.json` global)
 
 ```typescript
 interface LumemConfig {
@@ -390,7 +390,7 @@ interface LumemConfig {
   gate: { minSignals: number; minDurationMin: number; minHoursBetween: number; lockTtlMin: number }
   // defaults: 5 / 3 / 6 / 30
   consolidation: { enabled: boolean; runtime: 'auto' | string; model?: string }
-  // 'auto' = harness que capturou a sessão (decisão assumida #3)
+  // 'auto' = the harness that captured the session (assumed decision #3)
   harnesses: Record<string, { minVersion: string; installMode: 'symlink' | 'copy'; scope: 'project' | 'global' }>
   heuristics: { correctionMarkers: string[] }
 }
@@ -404,8 +404,8 @@ interface OperatingMode {
   detected: boolean
   version?: string
   grade: 'full' | 'degraded' | 'skill-only' | 'unavailable'
-  missing: string[]                        // capability keys ausentes
-  fallbacks: Record<string, InjectionMechanism | 'manual'>  // o que doctor reporta (HARN-04)
+  missing: string[]                        // missing capability keys
+  fallbacks: Record<string, InjectionMechanism | 'manual'>  // what doctor reports (HARN-04)
 }
 
 interface LocalState {                     // .lumem/local/state.json
@@ -418,63 +418,63 @@ interface LocalState {                     // .lumem/local/state.json
 
 ## Error Handling Strategy
 
-| Cenário | Tratamento | Impacto no usuário |
+| Scenario | Handling | User impact |
 |---|---|---|
-| Exceção interna em hook | try/catch total, log em `local/lumem.log`, `exit 0` | Nenhum — sessão intacta (NFR-1) |
-| Hook estoura deadline interno (100ms captura / 2s injeção) | `Promise.race` corta, loga, `exit 0` | Nenhum; sinal perdido é aceitável |
-| stdin malformado no hook | Parse manual defensivo; descarta, loga, `exit 0` | Nenhum |
-| Disco cheio / journal não gravável | Append falha silencioso p/ sessão; loga se log gravável | Nenhum na sessão |
-| Descritor de adapter inválido | Erro nomeando campo; harness excluído das operações | `doctor` mostra o problema |
-| Drift em arquivo gerenciado | `sync` avisa, não sobrescreve sem `--force` | Aviso claro + diff |
-| Patch do LLM inválido/não-parseável | Descartado inteiro; memória intacta; log | Nenhum; `doctor` aponta última falha |
-| Entrada do patch com segredo | Entrada descartada + log; resto do patch aplica | Nada vaza (MEM-05) |
-| CLI headless ausente/exit ≠ 0 na consolidação | Runner aborta limpo, libera lock, loga | Nenhum; consolidação fica para a próxima |
-| Lock ativo | Pula consolidação silenciosamente (log) | Nenhum |
-| Lock stale (> TTL) | Remove e readquire | Nenhum |
-| Memória com markdown malformado | Parser tolerante: pula entrada, loga | Entrada ignorada, resto funciona |
-| Hook com `cwd` fora de projeto lumem | Sinal descartado com log | Nenhum |
-| Versão do harness < mínima | `doctor` reporta incompatibilidade; modo degrada explícito | Aviso, nunca surpresa |
+| Internal exception in a hook | Full try/catch, log to `local/lumem.log`, `exit 0` | None — session intact (NFR-1) |
+| Hook blows its internal deadline (100ms capture / 2s injection) | `Promise.race` cuts it off, logs, `exit 0` | None; a lost signal is acceptable |
+| Malformed stdin in a hook | Defensive manual parse; discard, log, `exit 0` | None |
+| Full disk / journal not writable | Append fails silently for the session; logs if the log is writable | None during the session |
+| Invalid adapter descriptor | Error naming the field; harness excluded from operations | `doctor` shows the problem |
+| Drift in a managed file | `sync` warns, does not overwrite without `--force` | Clear warning + diff |
+| Invalid/unparseable LLM patch | Discarded entirely; memory intact; logged | None; `doctor` points at the last failure |
+| Patch entry containing a secret | Entry discarded + logged; the rest of the patch applies | Nothing leaks (MEM-05) |
+| Headless CLI missing/exit ≠ 0 during consolidation | Runner aborts cleanly, releases the lock, logs | None; consolidation waits for the next round |
+| Active lock | Consolidation skipped silently (log) | None |
+| Stale lock (> TTL) | Removed and re-acquired | None |
+| Memory with malformed markdown | Tolerant parser: skips the entry, logs | Entry ignored, the rest works |
+| Hook with a `cwd` outside a lumem project | Signal discarded with a log | None |
+| Harness version < the minimum | `doctor` reports the incompatibility; the mode degrades explicitly | A warning, never a surprise |
 
 ---
 
-## Tech Decisions (não-óbvias)
+## Tech Decisions (the non-obvious ones)
 
-| Decisão | Escolha | Racional |
+| Decision | Choice | Rationale |
 |---|---|---|
-| Entrypoint de hook | **1 bundle único** (`lumem-hook.mjs`) despachando por argv, não 1 arquivo por evento | 1 cold start path, install mais simples, NFR-6 |
-| Deps no hook bundle | **Zero** (nem zod) — validação manual de stdin | Cold start mínimo p/ p95 < 150ms |
-| Runner de consolidação | Bundle separado (`lumem-runner.mjs`), com zod | Desanexado → cold start irrelevante; validação de patch rigorosa onde importa |
-| Config de hook no Codex | Escrever **`.codex/hooks.json`** (não `[hooks]` no `config.toml`) | JSON gerenciável com merge/own-file; evita dependência de parser/writer TOML na V1 |
-| Injeção primária | hook-stdout nos dois harnesses (verificado §0) | Mecanismo idêntico; `injection[]` do descritor mantém fallbacks p/ harness futuro |
-| ID de fato | `sha256(body)[0:8]` derivado, nunca gravado | Formato em disco = PRD §5.3 intocado; `forget <id>` estável; sem estado extra |
-| Scrub de segredo | Choke point único em `writeStore` + redação no diário | Um lugar para auditar; cobre manual add E patch (MEM-05) |
-| Lock | O_EXCL + TTL 30min à mão | Trivial, zero dep, stale-safe |
-| Detecção de recovery de comando | Tail bounded do próprio diário da sessão | Sem estado paralelo; sem race com outras sessões |
-| Windows V1 | CLI ok; hooks **não instalados** (skill-only), embora Codex suporte | Decisão de escopo (matriz de teste); registrado que não é limite de plataforma |
-| Compactação | É um patch normal (remove/replace) disparado por `CompactionFlag` | Um caminho de escrita só; regras anti-lixo se aplicam igual |
-| Aplicação de patch | Atômica por arquivo (tmp + rename), all-or-nothing estrutural; entrada inválida descartada individualmente | Memória nunca fica em estado intermediário |
-| Idempotência do install | `plan()` puro = diff desejado × lock × disco; `apply()` só executa deltas | `--dry-run` imprime exatamente o plan; rodar N× = 0 deltas |
+| Hook entrypoint | **1 single bundle** (`lumem-hook.mjs`) dispatching on argv, not 1 file per event | 1 cold start path, simpler install, NFR-6 |
+| Deps in the hook bundle | **Zero** (not even zod) — stdin validated by hand | Minimum cold start for p95 < 150ms |
+| Consolidation runner | Separate bundle (`lumem-runner.mjs`), with zod | Detached → cold start irrelevant; strict patch validation where it matters |
+| Codex hook config | Write **`.codex/hooks.json`** (not `[hooks]` in `config.toml`) | Manageable JSON with merge/own-file; avoids depending on a TOML parser/writer in V1 |
+| Primary injection | hook stdout on both harnesses (verified in §0) | Identical mechanism; the descriptor's `injection[]` keeps fallbacks for a future harness |
+| Fact ID | `sha256(body)[0:8]` derived, never written | The on-disk format stays PRD §5.3 untouched; `forget <id>` stable; no extra state |
+| Secret scrub | A single choke point in `writeStore` + redaction in the journal | One place to audit; covers both manual add AND the patch (MEM-05) |
+| Lock | O_EXCL + 30min TTL by hand | Trivial, zero deps, stale-safe |
+| Command recovery detection | Bounded tail of the session's own journal | No parallel state; no race with other sessions |
+| Windows V1 | CLI ok; hooks **not installed** (skill-only), even though Codex supports them | Scope decision (test matrix); recorded that it is not a platform limit |
+| Compaction | It is a normal patch (remove/replace) triggered by a `CompactionFlag` | A single write path; the anti-junk rules apply the same |
+| Patch application | Atomic per file (tmp + rename), structurally all-or-nothing; an invalid entry is dropped individually | Memory never sits in an intermediate state |
+| Install idempotency | `plan()` pure = diff of desired × lock × disk; `apply()` executes only the deltas | `--dry-run` prints exactly the plan; running it N× = 0 deltas |
 
 ---
 
-## Estrutura do repositório (refina PRD §15)
+## Repository structure (refines PRD §15)
 
 ```
 src/
-  cli/                      # commander; um módulo por comando
+  cli/                      # commander; one module per command
   core/
     harness/                # engine: load, detect, resolveMode
     install/                # plan/apply, managed blocks, backup, drift
-    memory/                 # store, fatos, orçamento, compaction flags
-    capture/                # sinais, diário, heurísticas
+    memory/                 # store, facts, budget, compaction flags
+    capture/                # signals, journal, heuristics
     consolidate/            # gate, lock, runner-core, patch
-    shared/                 # secrets.ts, log.ts (rotação), fsx.ts (atomic write)
+    shared/                 # secrets.ts, log.ts (rotation), fsx.ts (atomic write)
   hooks/main.ts             # → dist/lumem-hook.mjs (bundle, zero deps)
-  runner/main.ts            # → dist/lumem-runner.mjs (bundle, com zod)
+  runner/main.ts            # → dist/lumem-runner.mjs (bundle, with zod)
   adapters/
     claude-code.json
     codex.json
-    schema.ts               # zod schema do descritor
+    schema.ts               # zod schema of the descriptor
 assets/
   skills/lumem-memory/SKILL.md
   skills/lumem-consolidate/SKILL.md
@@ -487,20 +487,20 @@ assets/
 
 ## Testing Strategy
 
-| Camada | Abordagem |
+| Layer | Approach |
 |---|---|
-| Unit (core/*) | vitest + fixtures em `mkdtemp`; parser de fatos com golden files; scanner de segredos com corpus positivo/negativo |
-| Install round-trip | Fake homes (`HOME` apontado p/ tmp) com `CLAUDE.md`/`AGENTS.md` pré-existentes contendo conteúdo do usuário; `install → uninstall` ⇒ byte-idêntico fora de `.lumem/` (P1.2 Independent Test) |
-| Blocos gerenciados | Golden tests: upsert/remove em arquivos com/sem bloco, com conteúdo do usuário antes/depois dos marcadores |
-| Chaos de hooks (P3.1) | Suíte que injeta exceção, timeout, stdin malformado, disco cheio (mock fs) → assert exit 0 + log |
-| Latência (CAP-04) | Bench script: 100 execuções reais de `node dist/lumem-hook.mjs`, assert p95 < 150ms; roda em CI |
-| Consolidação | LLM mockado (fixture de patch válido/inválido/com segredo); gate matrix; lock contention com 2 processos |
-| E2E manual | Uso real nos dois harnesses (M3/M4 exit criteria) |
+| Unit (core/*) | vitest + `mkdtemp` fixtures; fact parser with golden files; secret scanner with a positive/negative corpus |
+| Install round-trip | Fake homes (`HOME` pointed at tmp) with pre-existing `CLAUDE.md`/`AGENTS.md` containing user content; `install → uninstall` ⇒ byte-identical outside `.lumem/` (P1.2 Independent Test) |
+| Managed blocks | Golden tests: upsert/remove in files with and without the block, with user content before/after the markers |
+| Hook chaos (P3.1) | A suite that injects an exception, a timeout, malformed stdin, a full disk (mocked fs) → assert exit 0 + log |
+| Latency (CAP-04) | Bench script: 100 real executions of `node dist/lumem-hook.mjs`, assert p95 < 150ms; runs in CI |
+| Consolidation | Mocked LLM (fixtures for a valid/invalid/secret-carrying patch); gate matrix; lock contention with 2 processes |
+| Manual E2E | Real use on both harnesses (M3/M4 exit criteria) |
 
 ---
 
-## Impacto no spec (sem mudança de requisito)
+## Impact on the spec (no requirement changed)
 
-- P2.1 AC7 ("harness não suporta hooks — Windows, Codex sem flag/trust"): Codex hoje suporta hooks estáveis e Windows; o caso real de skill-only vira **Windows por decisão de escopo V1** + harness futuro sem hooks. AC permanece válido como está escrito.
-- P1.3 AC5 (fallback de injeção sem `SessionStart`): permanece — mecanismo declarado em `injection[]`, exercitável por teste com descritor sintético sem a capacidade.
-- Decisão assumida #5 resolvida com proposta concreta: **Claude Code ≥ 2.1.224, Codex ≥ 0.147.0** (atuais na data do design).
+- P2.1 AC7 ("the harness does not support hooks — Windows, Codex without the flag/trust"): Codex today supports stable hooks and Windows; the real skill-only case becomes **Windows by V1 scope decision** + a future harness without hooks. The AC stays valid exactly as written.
+- P1.3 AC5 (injection fallback without `SessionStart`): it stays — the mechanism is declared in `injection[]`, exercisable in a test with a synthetic descriptor lacking the capability.
+- Assumed decision #5 resolved with a concrete proposal: **Claude Code ≥ 2.1.224, Codex ≥ 0.147.0** (current as of the design date).

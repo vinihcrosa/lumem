@@ -49,9 +49,9 @@ const errorMessage = (err: unknown): string => (err instanceof Error ? err.messa
  * `<kind>:<harness>` (hook-config). `hook-bundle:*` is the harness-agnostic
  * pair installed once under `.lumem/bin`, so it belongs to no harness.
  *
- * SPEC_DEVIATION: a T17 leitura de harness é "sufixo `@<harness>`"; sem tratar
- * `hook-config:<harness>` o `--harness <id>` deixaria o hooks config órfão,
- * apontando para bundles já removidos.
+ * SPEC_DEVIATION: T17 reads the harness as "the `@<harness>` suffix"; without
+ * handling `hook-config:<harness>` too, `--harness <id>` would leave the hooks
+ * config orphaned, pointing at bundles that were already removed.
  */
 function harnessOf(artifactId: string): string | undefined {
   const at = artifactId.lastIndexOf('@')

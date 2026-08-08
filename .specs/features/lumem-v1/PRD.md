@@ -1,203 +1,203 @@
 # PRD — `lumem` V1
 
-> **Nome.** `lumem` — binário, diretório `.lumem/` e namespace dos blocos gerenciados. Pacote npm sob escopo próprio (ver §13.1).
+> **Name.** `lumem` — the binary, the `.lumem/` directory and the namespace of the managed blocks. npm package under its own scope (see §13.1).
 
 **Status:** Draft
-**Autor:** —
-**Data:** 2026-08-07
+**Author:** —
+**Date:** 2026-08-07
 
 ---
 
-## 1. Resumo
+## 1. Summary
 
-`lumem` é uma camada de memória e auto-aprendizado para agentes de código, distribuída como CLI Node/TypeScript. Ela se acopla a harnesses existentes (Claude Code, Codex) via **skills, hooks e agents**, sem substituir o runtime do agente.
+`lumem` is a memory and self-learning layer for coding agents, shipped as a Node/TypeScript CLI. It attaches to existing harnesses (Claude Code, Codex) through **skills, hooks and agents**, without replacing the agent runtime.
 
-O objetivo: o agente acumula conhecimento durável sobre o projeto e sobre as preferências do dev **sem que ninguém precise pedir**, e usa esse conhecimento nas sessões seguintes.
+The goal: the agent accumulates durable knowledge about the project and about the dev's preferences **without anyone having to ask**, and uses that knowledge in the sessions that follow.
 
-**O que não é:** orquestrador de pipeline, loja de skills, servidor, produto SaaS. É um instalador + um contrato de memória.
-
----
-
-## 2. Problema
-
-Toda sessão de agente começa do zero. O que se perde entre sessões:
-
-- **Decisões e o porquê delas.** "Não usamos ORM aqui porque X." O agente propõe ORM de novo na semana seguinte.
-- **Correções do usuário.** Você corrige o mesmo padrão de código cinco vezes. Nada disso persiste.
-- **Becos sem saída.** O agente tenta uma abordagem, descobre que não funciona, e tenta de novo em outra sessão.
-- **Preferências pessoais.** Estilo de commit, tolerância a comentários, como você gosta que ele te responda.
-
-Soluções atuais falham em duas direções opostas:
-
-- `CLAUDE.md` / `AGENTS.md` escritos à mão — funcionam, mas exigem disciplina manual e envelhecem mal.
-- Ferramentas que resolvem isso vêm acopladas a um orquestrador inteiro (Compozy, harnesses de workflow). Você adota a memória junto com um pipeline que talvez não queira.
-
-**Lacuna:** não existe uma camada de memória fina, portável e agnóstica de harness.
+**What it is not:** a pipeline orchestrator, a skill store, a server, a SaaS product. It is an installer plus a memory contract.
 
 ---
 
-## 3. Público-alvo
+## 2. Problem
 
-| Fase | Usuário | Necessidade |
+Every agent session starts from zero. What gets lost between sessions:
+
+- **Decisions and the reasoning behind them.** "We don't use an ORM here because X." The agent proposes an ORM again the following week.
+- **User corrections.** You correct the same code pattern five times. None of it persists.
+- **Dead ends.** The agent tries an approach, finds out it doesn't work, and tries it again in another session.
+- **Personal preferences.** Commit style, tolerance for comments, how you like it to answer you.
+
+Current solutions fail in two opposite directions:
+
+- Hand-written `CLAUDE.md` / `AGENTS.md` — they work, but they demand manual discipline and age badly.
+- The tools that solve this ship bolted to an entire orchestrator (Compozy, workflow harnesses). You adopt the memory together with a pipeline you may not want.
+
+**The gap:** there is no thin, portable, harness-agnostic memory layer.
+
+---
+
+## 3. Target audience
+
+| Phase | User | Need |
 |---|---|---|
-| V1 (interno) | Autor + time pequeno | Padronizar convenções entre repos; parar de reexplicar contexto |
-| Pós-V1 (público) | Dev individual usando 1–2 agentes CLI | Memória sem adotar um orquestrador |
+| V1 (internal) | Author + small team | Standardize conventions across repos; stop re-explaining context |
+| Post-V1 (public) | Solo dev using 1–2 CLI agents | Memory without adopting an orchestrator |
 
-V1 otimiza para o primeiro. Decisões que travem o segundo devem ser evitadas, mas não é preciso resolvê-las agora.
-
----
-
-## 4. Princípios de design
-
-Ordem importa: em conflito, o de cima vence.
-
-1. **Fail-open.** Se a camada de memória quebrar, o agente continua funcionando normalmente. Um hook que trava é pior que memória nenhuma.
-2. **Markdown é o banco de dados.** Sem SQLite, sem vector DB, sem daemon na V1. Arquivos legíveis, versionáveis, editáveis à mão, inspecionáveis com `cat`.
-3. **Captura é barata, consolidação é cara.** Registrar sinal é append em arquivo, determinístico, sem LLM. Transformar sinal em fato durável usa LLM e é *gated*.
-4. **Contexto é orçamento, não depósito.** Memória que cresce sem limite piora o agente. Todo conteúdo injetado tem teto duro.
-5. **Adapter é dado, não código.** Suportar um harness novo = adicionar um descritor declarativo, não escrever um `switch`.
-6. **Nunca sobrescrever o que é do usuário.** Arquivos compartilhados recebem bloco gerenciado delimitado, nunca reescrita total.
-7. **Local-first.** Nada sai da máquina. Zero rede em runtime.
+V1 optimizes for the first. Decisions that block the second should be avoided, but they don't have to be solved now.
 
 ---
 
-## 5. Modelo de memória
+## 4. Design principles
 
-### 5.1 Tipos
+Order matters: on conflict, the one above wins.
 
-Quatro tipos, cada um com regra própria de escrita, retenção e escopo:
+1. **Fail-open.** If the memory layer breaks, the agent keeps working normally. A hook that hangs is worse than no memory at all.
+2. **Markdown is the database.** No SQLite, no vector DB, no daemon in V1. Files that are readable, versionable, hand-editable, inspectable with `cat`.
+3. **Capture is cheap, consolidation is expensive.** Recording a signal is an append to a file, deterministic, no LLM. Turning a signal into a durable fact uses an LLM and is *gated*.
+4. **Context is a budget, not a warehouse.** Memory that grows without limit makes the agent worse. Every injected piece of content has a hard ceiling.
+5. **An adapter is data, not code.** Supporting a new harness = adding a declarative descriptor, not writing a `switch`.
+6. **Never overwrite what belongs to the user.** Shared files get a delimited managed block, never a full rewrite.
+7. **Local-first.** Nothing leaves the machine. Zero network at runtime.
 
-| Tipo | Conteúdo | Escopo | Versionado? |
+---
+
+## 5. Memory model
+
+### 5.1 Types
+
+Four types, each with its own rule for writing, retention and scope:
+
+| Type | Content | Scope | Versioned? |
 |---|---|---|---|
-| `project` | Arquitetura, convenções, decisões e o porquê, armadilhas do repo | Projeto | Sim (commitado) |
-| `preference` | Preferências do dev: estilo, tom, tolerâncias | Global | Não |
-| `correction` | Correções explícitas do usuário ao agente — o sinal de self-learn | Projeto + global | Projeto sim |
-| `session` | Diário bruto da sessão atual; matéria-prima da consolidação | Projeto | Não (gitignored) |
+| `project` | Architecture, conventions, decisions and their why, repo traps | Project | Yes (committed) |
+| `preference` | Dev preferences: style, tone, tolerances | Global | No |
+| `correction` | Explicit user corrections to the agent — the self-learn signal | Project + global | Project yes |
+| `session` | Raw journal of the current session; raw material for consolidation | Project | No (gitignored) |
 
-### 5.2 Layout em disco
+### 5.2 On-disk layout
 
 ```
-~/.lumem/                          # escopo global
+~/.lumem/                          # global scope
   memory/
     preference.md
     correction.md
   config.json
 
-<repo>/.lumem/                     # escopo projeto
+<repo>/.lumem/                     # project scope
   memory/
-    project.md                     # commitado
-    correction.md                  # commitado
+    project.md                     # committed
+    correction.md                  # committed
   local/                           # gitignored
     sessions/2026-08-07T14-22-Z.jsonl
     state.json
-  lumem.config.json                # commitado
-  .gitignore                       # gera-se automaticamente, ignora local/
+  lumem.config.json                # committed
+  .gitignore                       # generated automatically, ignores local/
 ```
 
-**Decisão:** memória de projeto é commitada por padrão. É o que torna a ferramenta útil para time — o conhecimento vira artefato compartilhado revisável em PR. Diário de sessão nunca é commitado (ruído + risco de vazar dados).
+**Decision:** project memory is committed by default. It is what makes the tool useful for a team — the knowledge becomes a shared artifact reviewable in a PR. The session journal is never committed (noise + risk of leaking data).
 
-**Risco aceito:** dois devs consolidando no mesmo dia geram conflito de merge em `project.md`. Mitigação na V1: arquivo estruturado em bullets curtos e independentes, que resolvem conflito trivialmente. Mitigação futura: um arquivo por fato.
+**Accepted risk:** two devs consolidating on the same day produce a merge conflict in `project.md`. V1 mitigation: the file is structured as short, independent bullets that resolve conflicts trivially. Future mitigation: one file per fact.
 
-### 5.3 Formato de um fato
+### 5.3 Fact format
 
-Cada entrada de memória durável carrega proveniência:
+Every durable memory entry carries provenance:
 
 ```markdown
-- [2026-08-07] Auth usa sessão via cookie, não JWT. JWT foi avaliado e
-  descartado por causa do requisito de revogação imediata.
+- [2026-08-07] Auth uses cookie sessions, not JWT. JWT was evaluated and
+  dropped because of the immediate-revocation requirement.
   <!-- src:sess_a1b2 conf:high -->
 ```
 
-Campos: data, corpo, sessão de origem, confiança. Proveniência é o que permite auditar e expirar.
+Fields: date, body, originating session, confidence. Provenance is what makes auditing and expiring possible.
 
-### 5.4 Regras anti-lixo
+### 5.4 Anti-junk rules
 
-Esta é a parte que decide se o produto funciona ou vira ruído. São regras do prompt de consolidação, não do código:
+This is the part that decides whether the product works or turns into noise. These are rules of the consolidation prompt, not of the code:
 
-- **Não duplicar o repo.** Se está no código, no git log, no README ou na spec, não vai pra memória. Memória guarda o que se perderia.
-- **Fato precisa ser falsificável.** "O usuário prefere código limpo" é lixo. "O usuário rejeita comentários que repetem o nome da função" é fato.
-- **Sem especulação.** Só o que foi observado nesta sessão.
-- **Preferir remover a acumular.** Consolidação pode apagar. Fato contradito por evidência nova é substituído, não empilhado.
+- **Don't duplicate the repo.** If it's in the code, the git log, the README or the spec, it doesn't go into memory. Memory holds what would otherwise be lost.
+- **A fact has to be falsifiable.** "The user prefers clean code" is junk. "The user rejects comments that restate the function name" is a fact.
+- **No speculation.** Only what was observed in this session.
+- **Prefer removing to accumulating.** Consolidation is allowed to delete. A fact contradicted by new evidence is replaced, not stacked.
 
-### 5.5 Orçamento e compactação
+### 5.5 Budget and compaction
 
-| Arquivo | Soft limit | Ação ao estourar |
+| File | Soft limit | Action when exceeded |
 |---|---|---|
-| `project.md` | 150 linhas / 12 KB | Marca para compactação na próxima consolidação |
-| `correction.md` | 100 linhas / 8 KB | Idem |
-| `preference.md` | 60 linhas / 4 KB | Idem |
-| Injeção total em contexto | 4 KB (configurável) | Trunca por prioridade |
+| `project.md` | 150 lines / 12 KB | Flagged for compaction on the next consolidation |
+| `correction.md` | 100 lines / 8 KB | Same |
+| `preference.md` | 60 lines / 4 KB | Same |
+| Total context injection | 4 KB (configurable) | Truncated by priority |
 
-Compactação preserva riscos ativos, decisões e correções recentes; corta repetição e o que já foi absorvido pelo código.
+Compaction preserves active risks, decisions and recent corrections; it cuts repetition and whatever the code has already absorbed.
 
 ---
 
-## 6. Ciclo de vida
+## 6. Lifecycle
 
-Três estágios. Só o terceiro custa tokens.
+Three stages. Only the third costs tokens.
 
-### Estágio 1 — Injeção (início da sessão)
+### Stage 1 — Injection (session start)
 
-**Gatilho:** hook `SessionStart` onde existir; senão, instrução na skill.
-**Ação:** lê memória dos escopos aplicáveis, monta um bloco dentro do orçamento, injeta como contexto adicional.
-**Custo:** leitura de arquivo. Sem LLM.
+**Trigger:** the `SessionStart` hook where one exists; otherwise, an instruction in the skill.
+**Action:** reads memory from the applicable scopes, assembles a block within budget, injects it as additional context.
+**Cost:** a file read. No LLM.
 
-### Estágio 2 — Captura (durante a sessão)
+### Stage 2 — Capture (during the session)
 
-**Gatilho:** hooks `UserPromptSubmit` e `PostToolUse`, mais escrita explícita via skill.
-**Ação:** append de sinal bruto em `local/sessions/<id>.jsonl`. Sinais:
+**Trigger:** the `UserPromptSubmit` and `PostToolUse` hooks, plus explicit writes via the skill.
+**Action:** appends a raw signal to `local/sessions/<id>.jsonl`. Signals:
 
-- arquivos tocados
-- comando que falhou e depois passou (indica armadilha aprendida)
-- prompt do usuário que casa com heurística de correção ("na verdade", "não, faz", "sempre que", "nunca")
-- chamada explícita do agente à skill de memória
+- files touched
+- a command that failed and then passed (indicates a trap learned)
+- a user prompt matching the correction heuristic ("na verdade", "não, faz", "sempre que", "nunca")
+- an explicit call by the agent to the memory skill
 
-**Custo:** append. Sem LLM. Precisa ser rápido — ver NFR-2.
+**Cost:** an append. No LLM. It has to be fast — see NFR-2.
 
-> **Risco conhecido:** detectar correção por heurística de string é frágil e gera falso positivo. Na V1 a heurística só *marca* o sinal; quem decide se virou fato é a consolidação (que tem LLM). Nunca escreve direto em memória durável.
+> **Known risk:** detecting a correction by string heuristic is fragile and produces false positives. In V1 the heuristic only *marks* the signal; whether it became a fact is decided by consolidation (which has an LLM). It never writes directly to durable memory.
 
-### Estágio 3 — Consolidação (fim de sessão, com gate)
+### Stage 3 — Consolidation (session end, gated)
 
-**Gatilho:** hook `SessionEnd`, ou `lumem memory consolidate` manual.
-**Gate — só roda se todas forem verdadeiras:**
+**Trigger:** the `SessionEnd` hook, or `lumem memory consolidate` by hand.
+**Gate — runs only if all of these are true:**
 
-- sessão teve ≥ N sinais capturados (default 5)
-- sessão durou ≥ N minutos (default 3)
-- passou ≥ N horas desde a última consolidação neste projeto (default 6)
-- não há lock ativo de consolidação para este projeto
+- the session captured ≥ N signals (default 5)
+- the session lasted ≥ N minutes (default 3)
+- ≥ N hours have passed since the last consolidation in this project (default 6)
+- there is no active consolidation lock for this project
 
-**Ação:** roda um prompt de consolidação num agente headless (`claude -p` / `codex exec`), passando o diário bruto + memória atual. Recebe de volta um patch: fatos a adicionar, a substituir, a remover. Aplica.
+**Action:** runs a consolidation prompt in a headless agent (`claude -p` / `codex exec`), passing the raw journal + the current memory. Gets back a patch: facts to add, to replace, to remove. Applies it.
 
-**Custo:** uma chamada de LLM. O gate existe para que sessão de 30 segundos não dispare nada.
+**Cost:** one LLM call. The gate exists so that a 30-second session triggers nothing.
 
-> **Decisão:** consolidação roda em processo separado e desanexado. `SessionEnd` dispara e retorna imediatamente. Bloquear o encerramento da sessão do usuário por causa de memória viola o princípio 1.
+> **Decision:** consolidation runs in a separate, detached process. `SessionEnd` fires it and returns immediately. Blocking the user's session shutdown over memory violates principle 1.
 
 ---
 
-## 7. Camada de harness
+## 7. Harness layer
 
-### 7.1 O problema
+### 7.1 The problem
 
-A capacidade varia muito entre harnesses. Levantamento atual:
+Capability varies a lot between harnesses. Current survey:
 
-| Capacidade | Claude Code | Codex |
+| Capability | Claude Code | Codex |
 |---|---|---|
-| Eventos de hook | 27+ | 5 (`SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`) |
-| Tipos de hook | command, prompt, agent, HTTP | command |
-| Config de hook | settings JSON | `hooks.json` ou `[hooks]` em `config.toml` |
-| Flag experimental | não | `[features] codex_hooks = true` (verificar na versão alvo) |
-| Windows | sim | hooks desabilitados |
-| Contexto no hook | env vars (`CLAUDE_PROJECT_DIR`) + stdin | só stdin JSON; usar campo `cwd` |
-| Trust de hook | — | projeto precisa ser confiável; usuário roda `/hooks` para aprovar |
-| Skills | `.claude/skills/` | `SKILL.md` com frontmatter; suporta `scripts/`, `references/`, `assets/` |
-| Doc de projeto | `CLAUDE.md` | `AGENTS.md` (limite ~32 KiB) |
+| Hook events | 27+ | 5 (`SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`) |
+| Hook types | command, prompt, agent, HTTP | command |
+| Hook config | settings JSON | `hooks.json` or `[hooks]` in `config.toml` |
+| Experimental flag | no | `[features] codex_hooks = true` (check on the target version) |
+| Windows | yes | hooks disabled |
+| Context in the hook | env vars (`CLAUDE_PROJECT_DIR`) + stdin | stdin JSON only; use the `cwd` field |
+| Hook trust | — | the project must be trusted; the user runs `/hooks` to approve |
+| Skills | `.claude/skills/` | `SKILL.md` with frontmatter; supports `scripts/`, `references/`, `assets/` |
+| Project doc | `CLAUDE.md` | `AGENTS.md` (~32 KiB limit) |
 | Home | `~/.claude` | `CODEX_HOME`, default `~/.codex` |
 
-> Estes dados precisam ser reverificados contra as versões alvo antes da implementação; as duas ferramentas mudam rápido. Congelar versão mínima suportada no `lumem.config.json`.
+> This data has to be re-verified against the target versions before implementation; both tools move fast. Freeze the minimum supported version in `lumem.config.json`.
 
-### 7.2 A solução: adapter declarativo
+### 7.2 The solution: a declarative adapter
 
-Cada harness é um descritor. Adicionar harness = adicionar arquivo, não código.
+Each harness is a descriptor. Adding a harness = adding a file, not code.
 
 ```jsonc
 {
@@ -222,181 +222,181 @@ Cada harness é um descritor. Adicionar harness = adicionar arquivo, não códig
 }
 ```
 
-### 7.3 Degradação graciosa
+### 7.3 Graceful degradation
 
-Se uma capacidade faltar, a funcionalidade não some — muda de mecanismo:
+If a capability is missing, the functionality doesn't disappear — it changes mechanism:
 
-| Capacidade ausente | Fallback |
+| Missing capability | Fallback |
 |---|---|
-| Sem `SessionStart` | Injeção passa a ser instrução na skill ("leia a memória antes de agir") |
-| Sem `SessionEnd` | Consolidação vira manual (`lumem memory consolidate`) + sugestão de cron |
-| Sem hooks (Windows/Codex) | Modo skill-only: tudo funciona, com captura menos automática |
-| Sem env vars | Resolver projeto pelo `cwd` do payload stdin |
+| No `SessionStart` | Injection becomes an instruction in the skill ("read the memory before acting") |
+| No `SessionEnd` | Consolidation becomes manual (`lumem memory consolidate`) + a cron suggestion |
+| No hooks (Windows/Codex) | Skill-only mode: everything works, with less automatic capture |
+| No env vars | Resolve the project from the `cwd` in the stdin payload |
 
-`lumem doctor` reporta em qual modo cada harness está operando. O usuário nunca descobre por acidente que está no modo degradado.
+`lumem doctor` reports which mode each harness is operating in. The user never finds out by accident that they are in degraded mode.
 
 ---
 
-## 8. Requisitos funcionais
+## 8. Functional requirements
 
 ### 8.1 CLI
 
-| ID | Comando | Descrição |
+| ID | Command | Description |
 |---|---|---|
-| FR-1 | `lumem init` | Detecta harnesses, pergunta o que instalar, cria `.lumem/`, escreve config e lockfile |
-| FR-2 | `lumem install [--harness <id>] [--global]` | Instala skills, hooks e agents nos harnesses selecionados |
-| FR-3 | `lumem sync` | Reconcilia estado em disco com o manifest; atualiza o que mudou de versão |
-| FR-4 | `lumem uninstall [--harness <id>]` | Remove tudo que instalou; restaura blocos gerenciados; **não** apaga a memória sem `--purge` |
-| FR-5 | `lumem status` | Mostra o que está instalado, onde, qual versão, qual fonte |
-| FR-6 | `lumem doctor` | Diagnostica: harness detectado, capacidades, modo de operação, hooks não confiados, drift entre lockfile e disco |
-| FR-7 | `lumem memory list\|show\|search <q>` | Leitura humana da memória |
-| FR-8 | `lumem memory add\|edit\|forget <id>` | Escrita e remoção manual |
-| FR-9 | `lumem memory consolidate [--force]` | Dispara consolidação manual, ignorando gate com `--force` |
-| FR-10 | `--dry-run` | Disponível em todo comando que escreve. Mostra diff, não aplica |
-| FR-11 | `--json` | Saída estruturada em todo comando de leitura |
+| FR-1 | `lumem init` | Detects harnesses, asks what to install, creates `.lumem/`, writes config and lockfile |
+| FR-2 | `lumem install [--harness <id>] [--global]` | Installs skills, hooks and agents into the selected harnesses |
+| FR-3 | `lumem sync` | Reconciles on-disk state with the manifest; updates whatever changed version |
+| FR-4 | `lumem uninstall [--harness <id>]` | Removes everything it installed; restores managed blocks; does **not** delete memory without `--purge` |
+| FR-5 | `lumem status` | Shows what is installed, where, which version, from which source |
+| FR-6 | `lumem doctor` | Diagnoses: harness detected, capabilities, operating mode, untrusted hooks, drift between lockfile and disk |
+| FR-7 | `lumem memory list\|show\|search <q>` | Human reading of memory |
+| FR-8 | `lumem memory add\|edit\|forget <id>` | Manual writing and removal |
+| FR-9 | `lumem memory consolidate [--force]` | Triggers consolidation by hand, skipping the gate with `--force` |
+| FR-10 | `--dry-run` | Available on every command that writes. Shows the diff, applies nothing |
+| FR-11 | `--json` | Structured output on every read command |
 
-### 8.2 Instalação
+### 8.2 Installation
 
-| ID | Requisito |
+| ID | Requirement |
 |---|---|
-| FR-12 | Manifest declara todo artefato instalável (id, tipo, versão, hash, destino) |
-| FR-13 | Lockfile (`lumem-lock.json`) registra o que foi instalado, onde, qual hash, quando |
-| FR-14 | Instalação é idempotente: rodar N vezes produz o mesmo estado |
-| FR-15 | Detecção de drift: se o usuário editou um arquivo gerenciado, `sync` avisa e não sobrescreve sem `--force` |
-| FR-16 | Arquivos compartilhados (`CLAUDE.md`, `AGENTS.md`, `hooks.json`) recebem bloco gerenciado com marcadores `<!-- lumem:start -->` / `<!-- lumem:end -->`; conteúdo fora dos marcadores nunca é tocado |
-| FR-17 | Backup timestampado de todo arquivo pré-existente antes da primeira escrita |
-| FR-18 | Modo symlink (default) e `--copy` |
-| FR-19 | Instalação em escopo projeto (default) ou global (`--global`) |
-| FR-20 | Ao instalar hooks no Codex, o pós-instalação instrui explicitamente o usuário a rodar `/hooks` para confiar, e o `doctor` verifica se ainda estão não-confiados |
+| FR-12 | The manifest declares every installable artifact (id, type, version, hash, destination) |
+| FR-13 | The lockfile (`lumem-lock.json`) records what was installed, where, with which hash, and when |
+| FR-14 | Installation is idempotent: running it N times produces the same state |
+| FR-15 | Drift detection: if the user edited a managed file, `sync` warns and does not overwrite without `--force` |
+| FR-16 | Shared files (`CLAUDE.md`, `AGENTS.md`, `hooks.json`) get a managed block with `<!-- lumem:start -->` / `<!-- lumem:end -->` markers; content outside the markers is never touched |
+| FR-17 | A timestamped backup of every pre-existing file before the first write |
+| FR-18 | Symlink mode (default) and `--copy` |
+| FR-19 | Installation at project scope (default) or global (`--global`) |
+| FR-20 | When installing hooks on Codex, the post-install step explicitly tells the user to run `/hooks` to trust them, and `doctor` checks whether they are still untrusted |
 
-### 8.3 Memória
+### 8.3 Memory
 
-| ID | Requisito |
+| ID | Requirement |
 |---|---|
-| FR-21 | Injeta memória relevante no início da sessão, respeitando orçamento configurável |
-| FR-22 | Captura sinais durante a sessão sem chamada de LLM |
-| FR-23 | Consolida sinais em fatos duráveis via LLM, respeitando gate |
-| FR-24 | Consolidação nunca bloqueia o encerramento da sessão |
-| FR-25 | Todo fato durável carrega proveniência (data, sessão, confiança) |
-| FR-26 | Compactação automática quando arquivo excede soft limit |
-| FR-27 | Escaneia conteúdo antes de persistir e recusa gravar segredos aparentes (chaves, tokens, `.env`) |
-| FR-28 | `.lumem/local/` entra no `.gitignore` automaticamente |
+| FR-21 | Injects relevant memory at session start, respecting a configurable budget |
+| FR-22 | Captures signals during the session with no LLM call |
+| FR-23 | Consolidates signals into durable facts via an LLM, respecting the gate |
+| FR-24 | Consolidation never blocks session shutdown |
+| FR-25 | Every durable fact carries provenance (date, session, confidence) |
+| FR-26 | Automatic compaction when a file exceeds its soft limit |
+| FR-27 | Scans content before persisting and refuses to write apparent secrets (keys, tokens, `.env`) |
+| FR-28 | `.lumem/local/` is added to `.gitignore` automatically |
 
-### 8.4 Skills e agents entregues
+### 8.4 Skills and agents delivered
 
-| ID | Artefato | Função |
+| ID | Artifact | Function |
 |---|---|---|
-| FR-29 | skill `lumem-memory` | Contrato de leitura/escrita de memória para o agente durante a sessão |
-| FR-30 | skill `lumem-consolidate` | Prompt de consolidação: diário bruto → patch de fatos. Inclui as regras anti-lixo da §5.4 |
-| FR-31 | agent `lumem-consolidator` | Definição do agente headless que roda a consolidação, com runtime barato por padrão |
-| FR-32 | hooks | Scripts de injeção, captura e disparo de consolidação, por harness |
+| FR-29 | skill `lumem-memory` | The memory read/write contract for the agent during the session |
+| FR-30 | skill `lumem-consolidate` | Consolidation prompt: raw journal → fact patch. Includes the anti-junk rules from §5.4 |
+| FR-31 | agent `lumem-consolidator` | Definition of the headless agent that runs consolidation, with a cheap runtime by default |
+| FR-32 | hooks | Injection, capture and consolidation-trigger scripts, per harness |
 
 ---
 
-## 9. Requisitos não funcionais
+## 9. Non-functional requirements
 
-| ID | Requisito | Critério |
+| ID | Requirement | Criterion |
 |---|---|---|
-| NFR-1 | **Fail-open** | Todo hook captura exceção, sempre sai com código 0, tem timeout. Falha vira log em `local/`, nunca erro visível ao usuário nem bloqueio de sessão |
-| NFR-2 | **Latência de hook** | p95 < 150 ms para hooks de captura. Hook lento faz o agente parecer quebrado |
-| NFR-3 | **Zero rede em runtime** | A CLI só acessa rede em `install`/`sync` para buscar pacote. Memória nunca sai da máquina |
-| NFR-4 | **Zero-install** | `npx lumem init` funciona sem instalação prévia |
-| NFR-5 | **Runtime** | Node ≥ 20, TypeScript, ESM. Zero dependência nativa |
-| NFR-6 | **Bundle** | Entrypoint de hook empacotado num arquivo só, para minimizar cold start. Hook **nunca** invoca `npx` |
-| NFR-7 | **Reversibilidade** | `uninstall` restaura o estado anterior de todo arquivo tocado |
-| NFR-8 | **Privacidade** | Nenhuma telemetria na V1. Se existir depois, opt-in explícito |
-| NFR-9 | **Portabilidade** | macOS e Linux na V1. Windows: CLI funciona, hooks degradam para skill-only |
-| NFR-10 | **Observabilidade** | Log estruturado em `.lumem/local/lumem.log`, com rotação |
+| NFR-1 | **Fail-open** | Every hook catches exceptions, always exits with code 0, has a timeout. A failure becomes a log in `local/`, never a user-visible error nor a blocked session |
+| NFR-2 | **Hook latency** | p95 < 150 ms for capture hooks. A slow hook makes the agent look broken |
+| NFR-3 | **Zero network at runtime** | The CLI only touches the network in `install`/`sync` to fetch the package. Memory never leaves the machine |
+| NFR-4 | **Zero-install** | `npx lumem init` works with no prior installation |
+| NFR-5 | **Runtime** | Node ≥ 20, TypeScript, ESM. Zero native dependencies |
+| NFR-6 | **Bundle** | The hook entrypoint is bundled into a single file, to minimize cold start. The hook **never** invokes `npx` |
+| NFR-7 | **Reversibility** | `uninstall` restores the previous state of every file it touched |
+| NFR-8 | **Privacy** | No telemetry in V1. If it ever exists, explicit opt-in |
+| NFR-9 | **Portability** | macOS and Linux in V1. Windows: the CLI works, hooks degrade to skill-only |
+| NFR-10 | **Observability** | Structured log in `.lumem/local/lumem.log`, with rotation |
 
 ---
 
-## 10. Fora de escopo na V1
+## 10. Out of scope for V1
 
-Registrado para não virar creep:
+Recorded so it doesn't turn into creep:
 
-- Geração de skills específicas do repositório (o comportamento tipo Hermes Agent) — **V2**
-- Harnesses além de Claude Code e Codex — a arquitetura de adapter prepara, a V1 não entrega
-- Sincronização de memória entre máquinas ou membros do time via servidor (git resolve o suficiente)
-- Busca semântica / embeddings — grep sobre markdown basta nesta escala
+- Generating repository-specific skills (the Hermes Agent-style behavior) — **V2**
+- Harnesses beyond Claude Code and Codex — the adapter architecture prepares for it, V1 does not deliver it
+- Syncing memory across machines or team members via a server (git is enough)
+- Semantic search / embeddings — grep over markdown is enough at this scale
 - Web UI, dashboard, marketplace
-- Orquestração de tarefas, execução multi-agente
-- Suporte a hooks no Windows
+- Task orchestration, multi-agent execution
+- Hook support on Windows
 
 ---
 
-## 11. Métricas de sucesso
+## 11. Success metrics
 
-Uso interno, V1. Metas propositalmente baixas — é validação, não crescimento.
+Internal use, V1. Targets deliberately low — this is validation, not growth.
 
-| Métrica | Meta |
+| Metric | Target |
 |---|---|
-| Instalação limpa em repo novo | < 2 min, sem edição manual |
-| Sessões de agente quebradas pela ferramenta | **zero** — é o critério de aceite mais importante |
-| Fatos duráveis por semana num repo ativo | 5–15 (abaixo disso não captura; acima disso é ruído) |
-| Taxa de fatos úteis | > 60% das entradas sobrevivem a uma revisão manual sem serem apagadas |
-| Reexplicação de contexto | Redução perceptível relatada pelo time após 2 semanas |
+| Clean install in a new repo | < 2 min, no manual editing |
+| Agent sessions broken by the tool | **zero** — the most important acceptance criterion |
+| Durable facts per week in an active repo | 5–15 (below that it isn't capturing; above that it's noise) |
+| Useful-fact rate | > 60% of entries survive a manual review without being deleted |
+| Context re-explanation | Noticeable reduction reported by the team after 2 weeks |
 
-A quarta métrica é a que importa. Se você abre o `project.md` e a maioria é óbvia ou errada, o prompt de consolidação está ruim — e é lá que o produto vive.
+The fourth metric is the one that matters. If you open `project.md` and most of it is obvious or wrong, the consolidation prompt is bad — and that is where the product lives.
 
 ---
 
-## 12. Riscos
+## 12. Risks
 
-| Risco | Impacto | Mitigação |
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Hook quebra sessão do agente | Fatal para adoção | NFR-1. Testar injeção de falha em todos os hooks |
-| Memória vira ruído e degrada o agente | Fatal para o valor | Orçamento duro, compactação, regras anti-lixo, revisão manual fácil |
-| Codex muda formato de hook | Retrabalho | Adapter declarativo isola; congelar versão mínima; `doctor` detecta incompatibilidade |
-| Consolidação custa caro em tokens | Atrito | Gate agressivo, runtime barato por default, `--dry-run` mostra o custo |
-| Vazamento de segredo pra dentro de arquivo commitado | Grave | FR-27 + memória de projeto passa por PR antes de mergear |
-| Conflito de merge em `project.md` | Irritante | Bullets curtos independentes; futuro: um arquivo por fato |
-| Detecção de correção com falso positivo | Ruído | Heurística só marca; LLM decide; nunca escrita direta |
-| Cold start do Node em hook | Agente parece lento | NFR-6; medir cedo; se não fechar, avaliar binário compilado |
+| A hook breaks the agent session | Fatal for adoption | NFR-1. Fault injection tested on every hook |
+| Memory turns into noise and degrades the agent | Fatal for the value | Hard budget, compaction, anti-junk rules, easy manual review |
+| Codex changes the hook format | Rework | The declarative adapter isolates it; freeze the minimum version; `doctor` detects incompatibility |
+| Consolidation costs a lot in tokens | Friction | Aggressive gate, cheap runtime by default, `--dry-run` shows the cost |
+| A secret leaks into a committed file | Serious | FR-27 + project memory goes through a PR before merging |
+| Merge conflict in `project.md` | Annoying | Short independent bullets; future: one file per fact |
+| False positive in correction detection | Noise | The heuristic only marks; the LLM decides; never a direct write |
+| Node cold start in a hook | The agent feels slow | NFR-6; measure early; if it doesn't fit, evaluate a compiled binary |
 
 ---
 
-## 13. Decisões em aberto
+## 13. Open decisions
 
-Precisam de resposta antes ou durante a implementação:
+They need an answer before or during implementation:
 
-1. **Publicação no npm.** Nome resolvido: `lumem`. Falta confirmar se `lumem` está livre no registry. Se não estiver, publicar como `@<user>/lumem` e declarar `"bin": { "lumem": "./dist/cli.js" }` — o binário chamado pelo usuário continua sendo `lumem` independentemente do nome do pacote.
-2. **Memória de projeto commitada por padrão?** O documento assume que sim. Se o time achar ruidoso em PR, a alternativa é gitignored com opt-in — mas aí perde-se o compartilhamento, que é metade do valor pra time.
-3. **Runtime da consolidação.** Sempre o harness em uso, ou modelo fixo e barato configurável? Fixo é mais previsível em custo; usar o harness evita configurar credencial extra.
-4. **Sobre o que fazer quando os dois harnesses estão instalados no mesmo repo:** memória compartilhada entre eles (provável — é o mesmo projeto) ou segregada por harness?
-5. **Versão mínima suportada** de Claude Code e Codex a congelar.
+1. **Publishing on npm.** Name settled: `lumem`. Still to confirm whether `lumem` is free on the registry. If it isn't, publish as `@<user>/lumem` and declare `"bin": { "lumem": "./dist/cli.js" }` — the binary the user calls stays `lumem` regardless of the package name.
+2. **Project memory committed by default?** The document assumes yes. If the team finds it noisy in PRs, the alternative is gitignored with opt-in — but then you lose the sharing, which is half the value for a team.
+3. **Consolidation runtime.** Always the harness in use, or a fixed cheap model, configurable? Fixed is more predictable in cost; using the harness avoids configuring an extra credential.
+4. **On what to do when both harnesses are installed in the same repo:** memory shared between them (likely — it's the same project) or segregated per harness?
+5. **Minimum supported version** of Claude Code and Codex to freeze.
 
 ---
 
-## 14. Marcos
+## 14. Milestones
 
-| Marco | Entrega | Critério de saída |
+| Milestone | Delivers | Exit criterion |
 |---|---|---|
-| M0 — Esqueleto | CLI TS, detecção de harness, `doctor`, `status` | `npx lumem doctor` identifica corretamente os dois harnesses |
-| M1 — Instalador | Manifest, lockfile, blocos gerenciados, `install`/`uninstall`/`--dry-run` | Instala e desinstala sem deixar resíduo nem tocar conteúdo do usuário |
-| M2 — Memória manual | Formato de arquivo, comandos `memory *`, injeção via skill | Agente lê e usa a memória; escrita ainda é manual |
-| M3 — Captura | Hooks de sinal nos dois harnesses, diário de sessão | Sinais aparecem no diário; zero sessão quebrada em uma semana de uso |
-| M4 — Consolidação | Skill + agent de consolidação, gate, compactação | Fatos úteis aparecem sozinhos após uso real |
-| M5 — Endurecimento | Fail-open testado, scrub de segredo, docs, README | Pronto para tornar o repositório público |
+| M0 — Skeleton | TS CLI, harness detection, `doctor`, `status` | `npx lumem doctor` correctly identifies both harnesses |
+| M1 — Installer | Manifest, lockfile, managed blocks, `install`/`uninstall`/`--dry-run` | Installs and uninstalls leaving no residue and touching no user content |
+| M2 — Manual memory | File format, `memory *` commands, injection via skill | Agent reads and uses memory; writing is still manual |
+| M3 — Capture | Signal hooks on both harnesses, session journal | Signals show up in the journal; zero broken sessions over a week of use |
+| M4 — Consolidation | Consolidation skill + agent, gate, compaction | Useful facts appear on their own after real use |
+| M5 — Hardening | Fail-open tested, secret scrub, docs, README | Ready to make the repository public |
 
-M0–M2 entregam valor interno sozinhos. Se o projeto morrer em M2, você ainda ganhou um instalador de convenções — que era a dor original.
+M0–M2 deliver internal value on their own. If the project dies at M2, you still got a conventions installer — which was the original pain.
 
 ---
 
-## 15. Apêndice — esboço de estrutura do repositório
+## 15. Appendix — sketch of the repository structure
 
 ```
 src/
-  cli/              # comandos, parsing, output
+  cli/              # commands, parsing, output
   core/
-    memory/         # formato, leitura, escrita, compactação, orçamento
-    capture/        # normalização de sinal, diário de sessão
-    consolidate/    # gate, disparo, aplicação de patch
-    install/        # manifest, lockfile, blocos gerenciados, backup
+    memory/         # format, reading, writing, compaction, budget
+    capture/        # signal normalization, session journal
+    consolidate/    # gate, trigger, patch application
+    install/        # manifest, lockfile, managed blocks, backup
   adapters/
     claude-code.json
     codex.json
-    schema.ts       # validação do descritor
-  hooks/            # entrypoints empacotados por evento
+    schema.ts       # descriptor validation
+  hooks/            # entrypoints bundled per event
 assets/
   skills/
     lumem-memory/SKILL.md
@@ -405,4 +405,4 @@ assets/
     lumem-consolidator/
 ```
 
-A fronteira que importa: **`core/` não sabe que Claude Code ou Codex existem.** Se souber, o suporte a um harness novo deixa de ser dado e vira código — e o princípio 5 morre.
+The boundary that matters: **`core/` does not know that Claude Code or Codex exist.** If it does, supporting a new harness stops being data and becomes code — and principle 5 dies.

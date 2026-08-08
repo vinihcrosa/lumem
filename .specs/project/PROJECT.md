@@ -1,37 +1,37 @@
 # lumem
 
-## Visão
+## Vision
 
-Camada de memória e auto-aprendizado para agentes de código, distribuída como CLI Node/TypeScript. Acopla-se a harnesses existentes (Claude Code, Codex) via skills, hooks e agents — sem substituir o runtime do agente.
+Memory and self-learning layer for coding agents, shipped as a Node/TypeScript CLI. It attaches to existing harnesses (Claude Code, Codex) through skills, hooks and agents — without replacing the agent runtime.
 
-O agente acumula conhecimento durável sobre o projeto e sobre as preferências do dev **sem que ninguém precise pedir**, e usa esse conhecimento nas sessões seguintes.
+The agent accumulates durable knowledge about the project and about the dev's preferences **without anyone having to ask**, and uses that knowledge in the sessions that follow.
 
-**O que não é:** orquestrador de pipeline, loja de skills, servidor, produto SaaS. É um instalador + um contrato de memória.
+**What it is not:** a pipeline orchestrator, a skill store, a server, a SaaS product. It is an installer plus a memory contract.
 
-## Problema
+## Problem
 
-Toda sessão de agente começa do zero. Perde-se entre sessões: decisões e o porquê delas, correções do usuário, becos sem saída já explorados, preferências pessoais. `CLAUDE.md`/`AGENTS.md` manuais exigem disciplina e envelhecem mal; ferramentas que resolvem isso vêm acopladas a orquestradores inteiros. Não existe camada de memória fina, portável e agnóstica de harness.
+Every agent session starts from zero. What gets lost between sessions: decisions and the reasoning behind them, user corrections, dead ends already explored, personal preferences. Hand-written `CLAUDE.md`/`AGENTS.md` demand discipline and age badly; the tools that solve this ship bolted to entire orchestrators. There is no thin, portable, harness-agnostic memory layer.
 
-## Público
+## Audience
 
-- **V1 (interno):** autor + time pequeno — padronizar convenções entre repos, parar de reexplicar contexto.
-- **Pós-V1 (público):** dev individual com 1–2 agentes CLI — memória sem adotar orquestrador.
+- **V1 (internal):** author + small team — standardize conventions across repos, stop re-explaining context.
+- **Post-V1 (public):** solo dev with 1–2 CLI agents — memory without adopting an orchestrator.
 
-## Princípios de design (ordem importa; em conflito, o de cima vence)
+## Design principles (order matters; on conflict, the one above wins)
 
-1. **Fail-open.** Memória quebrada nunca quebra o agente.
-2. **Markdown é o banco de dados.** Sem SQLite, vector DB ou daemon na V1.
-3. **Captura é barata, consolidação é cara.** Sinal = append determinístico; fato durável = LLM gated.
-4. **Contexto é orçamento, não depósito.** Todo conteúdo injetado tem teto duro.
-5. **Adapter é dado, não código.** Harness novo = descritor declarativo novo.
-6. **Nunca sobrescrever o que é do usuário.** Blocos gerenciados delimitados, nunca reescrita total.
-7. **Local-first.** Zero rede em runtime.
+1. **Fail-open.** Broken memory never breaks the agent.
+2. **Markdown is the database.** No SQLite, vector DB or daemon in V1.
+3. **Capture is cheap, consolidation is expensive.** Signal = deterministic append; durable fact = LLM gated.
+4. **Context is a budget, not a warehouse.** Every injected piece of content has a hard ceiling.
+5. **An adapter is data, not code.** New harness = new declarative descriptor.
+6. **Never overwrite what belongs to the user.** Delimited managed blocks, never a full rewrite.
+7. **Local-first.** Zero network at runtime.
 
-## Fronteira arquitetural inegociável
+## Non-negotiable architectural boundary
 
-`core/` não sabe que Claude Code ou Codex existem. Se souber, suporte a harness novo vira código e o princípio 5 morre.
+`core/` does not know that Claude Code or Codex exist. If it does, supporting a new harness becomes code and principle 5 dies.
 
-## Documentos
+## Documents
 
-- PRD completo: [.specs/features/lumem-v1/PRD.md](../features/lumem-v1/PRD.md)
-- Spec V1: [.specs/features/lumem-v1/spec.md](../features/lumem-v1/spec.md)
+- Full PRD: [.specs/features/lumem-v1/PRD.md](../features/lumem-v1/PRD.md)
+- V1 spec: [.specs/features/lumem-v1/spec.md](../features/lumem-v1/spec.md)

@@ -1,19 +1,19 @@
 # Roadmap — lumem V1
 
-Marcos do PRD §14. M0–M2 entregam valor interno sozinhos (instalador de convenções — a dor original).
+Milestones from PRD §14. M0–M2 deliver internal value on their own (a conventions installer — the original pain).
 
-| Marco | Entrega | Critério de saída | Status |
+| Milestone | Delivers | Exit criterion | Status |
 |---|---|---|---|
-| M0 — Esqueleto | CLI TS, detecção de harness, `doctor`, `status` | `npx lumem doctor` identifica corretamente os dois harnesses | ✅ Done |
-| M1 — Instalador | Manifest, lockfile, blocos gerenciados, `install`/`uninstall`/`--dry-run` | Instala e desinstala sem deixar resíduo nem tocar conteúdo do usuário | ✅ Done |
-| M2 — Memória manual | Formato de arquivo, comandos `memory *`, injeção via skill | Agente lê e usa a memória; escrita ainda é manual | ✅ Done |
-| M3 — Captura | Hooks de sinal nos dois harnesses, diário de sessão | Sinais aparecem no diário; zero sessão quebrada em uma semana de uso | ✅ Done |
-| M4 — Consolidação | Skill + agent de consolidação, gate, compactação | Fatos úteis aparecem sozinhos após uso real | ✅ Done |
-| M5 — Endurecimento | Fail-open testado, scrub de segredo, docs, README | Pronto para tornar o repositório público | ✅ Done |
+| M0 — Skeleton | TS CLI, harness detection, `doctor`, `status` | `npx lumem doctor` correctly identifies both harnesses | ✅ Done |
+| M1 — Installer | Manifest, lockfile, managed blocks, `install`/`uninstall`/`--dry-run` | Installs and uninstalls leaving no residue and touching no user content | ✅ Done |
+| M2 — Manual memory | File format, `memory *` commands, injection via skill | Agent reads and uses memory; writing is still manual | ✅ Done |
+| M3 — Capture | Signal hooks on both harnesses, session journal | Signals show up in the journal; zero broken sessions over a week of use | ✅ Done |
+| M4 — Consolidation | Consolidation skill + agent, gate, compaction | Useful facts appear on their own after real use | ✅ Done |
+| M5 — Hardening | Fail-open tested, secret scrub, docs, README | Ready to make the repository public | ✅ Done |
 
-## Mapeamento marco → stories da spec
+## Milestone → spec story mapping
 
-| Marco | Stories |
+| Milestone | Stories |
 |---|---|
 | M0 | P1.1 |
 | M1 | P1.2 |
@@ -22,12 +22,12 @@ Marcos do PRD §14. M0–M2 entregam valor interno sozinhos (instalador de conve
 | M4 | P2.2 |
 | M5 | P3.1 |
 
-## Fora de escopo V1 (anti-creep)
+## Out of scope for V1 (anti-creep)
 
-- Geração de skills específicas do repo (comportamento tipo Hermes Agent) — **V2**
-- Harnesses além de Claude Code e Codex
-- Sync de memória via servidor (git resolve)
-- Busca semântica / embeddings
+- Generating repo-specific skills (Hermes Agent-style behavior) — **V2**
+- Harnesses beyond Claude Code and Codex
+- Memory sync via server (git is enough)
+- Semantic search / embeddings
 - Web UI, dashboard, marketplace
-- Orquestração de tarefas, multi-agente
-- Hooks no Windows
+- Task orchestration, multi-agent
+- Hooks on Windows

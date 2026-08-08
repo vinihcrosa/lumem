@@ -2,78 +2,78 @@
 
 ## Decisions
 
-- [2026-08-07] **Memória de projeto commitada por padrão.** Conhecimento vira artefato compartilhado revisável em PR. Diário de sessão nunca commitado. (PRD §5.2)
-- [2026-08-07] **Consolidação em processo separado e desanexado.** `SessionEnd` dispara e retorna imediatamente; nunca bloqueia encerramento. (PRD §6)
-- [2026-08-07] **Heurística de correção só marca sinal.** Quem decide se vira fato é a consolidação (LLM). Nunca escrita direta em memória durável. (PRD §6)
-- [2026-08-07] **`core/` agnóstico de harness.** Adapters são descritores declarativos em `src/adapters/*.json`; adicionar harness = adicionar arquivo. (PRD §15)
-- [2026-08-07] **Spec V1 criada a partir do PRD** com defaults do PRD assumidos para as decisões em aberto (ver Open Decisions abaixo e spec §Decisões assumidas).
-- [2026-08-07] **Tabela de capacidades do PRD §7.1 reverificada** contra docs oficiais e fonte. Deltas registrados em design.md §0 — Codex: 11 eventos de hook estáveis ligados por default (flag `hooks`; `codex_hooks` = alias deprecated), Windows suportado, skills em `.agents/skills` (não `.codex/skills`), SessionStart injeta contexto via stdout. Descritores V1 usam os fatos verificados.
-- [2026-08-07] **Injeção primária = hook-stdout nos dois harnesses.** Cadeia de fallback (`injection[]` no descritor) mantida como dado para harness futuro.
-- [2026-08-07] **Hook config no Codex via `.codex/hooks.json`** (não `[hooks]` em `config.toml`) — evita parser/writer TOML na V1.
-- [2026-08-07] **Windows V1 = skill-only por decisão de escopo**, não por limitação (Codex suporta hooks no Windows via `command_windows`). Reduz matriz de teste.
-- [2026-08-07] **Hook bundle com zero deps** (nem zod; validação manual de stdin) para p95 < 150ms; zod fica no CLI e no runner desanexado.
+- [2026-08-07] **Project memory committed by default.** Knowledge becomes a shared artifact reviewable in a PR. The session journal is never committed. (PRD §5.2)
+- [2026-08-07] **Consolidation runs in a separate, detached process.** `SessionEnd` fires it and returns immediately; it never blocks shutdown. (PRD §6)
+- [2026-08-07] **The correction heuristic only marks a signal.** Whether it becomes a fact is decided by consolidation (the LLM). Never a direct write to durable memory. (PRD §6)
+- [2026-08-07] **`core/` is harness-agnostic.** Adapters are declarative descriptors in `src/adapters/*.json`; adding a harness = adding a file. (PRD §15)
+- [2026-08-07] **V1 spec written from the PRD** with the PRD defaults assumed for the open decisions (see Open Decisions below and spec §Assumed decisions).
+- [2026-08-07] **PRD §7.1 capability table re-verified** against official docs and source. Deltas recorded in design.md §0 — Codex: 11 stable hook events on by default (flag `hooks`; `codex_hooks` = deprecated alias), Windows supported, skills in `.agents/skills` (not `.codex/skills`), `SessionStart` injects context via stdout. The V1 descriptors use the verified facts.
+- [2026-08-07] **Primary injection = hook stdout on both harnesses.** The fallback chain (`injection[]` in the descriptor) stays as data, for a future harness.
+- [2026-08-07] **Codex hook config lives in `.codex/hooks.json`** (not `[hooks]` in `config.toml`) — avoids a TOML parser/writer in V1.
+- [2026-08-07] **Windows V1 = skill-only by scope decision**, not by limitation (Codex supports hooks on Windows via `command_windows`). Shrinks the test matrix.
+- [2026-08-07] **Hook bundle with zero deps** (not even zod; stdin validated by hand) for p95 < 150ms; zod stays in the CLI and in the detached runner.
 
-## Open Decisions (PRD §13 — assumidos com default, confirmar com o autor)
+## Open Decisions (PRD §13 — assumed with a default, confirm with the author)
 
-1. ~~**Nome npm.**~~ **RESOLVIDA** [2026-08-07]: `npm view lumem` → 404, nome livre. Pacote publica como `lumem`.
-2. **Memória de projeto commitada?** Assumido: **sim** (default do PRD). Reverter para gitignored+opt-in só se PRs ficarem ruidosos.
-3. **Runtime da consolidação.** Assumido: harness em uso (`claude -p` / `codex exec`) com modelo barato por padrão, configurável em `lumem.config.json`. Evita credencial extra; custo controlado pelo gate.
-4. **Dois harnesses no mesmo repo.** Assumido: **memória compartilhada** (mesmo projeto, mesmo conhecimento). Segregação só se surgir conflito real.
-5. **Versões mínimas de Claude Code e Codex.** Congeladas nos descritores: Claude Code ≥ 2.1.224, Codex ≥ 0.147.0 — escolhidas por serem o release estável na data da verificação, **não** por serem a versão mais antiga compatível. Consequência observada em smoke: a máquina do autor roda Codex 0.144.6, então `doctor` sai 3 com aviso de incompatibilidade (comportamento correto do design, mas ruidoso se 0.144.6 já suportar o que usamos). **Pendente:** verificar em qual versão hooks viraram estáveis e `.agents/skills` passou a ser o diretório de skills; baixar o mínimo até lá. Não chutar — verificar contra o changelog do `openai/codex`.
+1. ~~**npm name.**~~ **RESOLVED** [2026-08-07]: `npm view lumem` → 404, name is free. The package publishes as `lumem`.
+2. **Project memory committed?** Assumed: **yes** (PRD default). Revert to gitignored+opt-in only if PRs get noisy.
+3. **Consolidation runtime.** Assumed: the harness in use (`claude -p` / `codex exec`) with a cheap model by default, configurable in `lumem.config.json`. Avoids an extra credential; cost is held down by the gate.
+4. **Two harnesses in the same repo.** Assumed: **shared memory** (same project, same knowledge). Segregate only if a real conflict shows up.
+5. **Minimum Claude Code and Codex versions.** Frozen in the descriptors: Claude Code ≥ 2.1.224, Codex ≥ 0.147.0 — chosen because they were the stable release on the verification date, **not** because they are the oldest compatible version. Observed consequence in smoke: the author's machine runs Codex 0.144.6, so `doctor` exits 3 with an incompatibility warning (correct behavior by design, but noisy if 0.144.6 already supports what we use). **Pending:** find out which version made hooks stable and `.agents/skills` the skills directory; lower the minimum to that. Do not guess — verify against the `openai/codex` changelog.
 
 ## Blockers
 
-(nenhum — V1 completa)
+(none — V1 complete)
 
-## Estado atual (2026-08-08)
+## Current state (2026-08-08)
 
-**48/48 tasks, M0–M5 completos.** 62 commits, 1052 testes em 43 arquivos, `npm run verify` verde em três rodadas consecutivas.
+**48/48 tasks, M0–M5 complete.** 62 commits, 1052 tests across 43 files, `npm run verify` green on three consecutive runs.
 
-Verificado contra binário real, não só em teste:
-- `doctor` identifica os dois harnesses instalados com grade e fallbacks
-- install → uninstall devolve todo arquivo do usuário byte-idêntico, inclusive `.claude/settings.json` pré-existente
-- ciclo de memória ponta a ponta pelo bundle instalado: injeção priorizada, captura de correção no diário, recusa de segredo com exit 1
-- tarball empacotado instala em dir limpo e roda a CLI completa (`verify-pack.sh`)
-- latência de hook p95 33 ms (teto NFR-2: 150 ms); 185 invocações de chaos, todas exit 0
+Verified against the real binary, not only in tests:
+- `doctor` identifies both installed harnesses with grade and fallbacks
+- install → uninstall gives every user file back byte-identical, including a pre-existing `.claude/settings.json`
+- end-to-end memory cycle through the installed bundle: prioritized injection, correction captured in the journal, secret refused with exit 1
+- the packed tarball installs into a clean dir and runs the full CLI (`verify-pack.sh`)
+- hook latency p95 33 ms (NFR-2 ceiling: 150 ms); 185 chaos invocations, all exit 0
 
-### Bugs de integração achados por smoke/chaos (todos com regressão)
+### Integration bugs found by smoke/chaos (all with a regression test)
 
-Padrão que se repetiu: cada peça passava isolada, o contrato entre elas estava errado. Só apareceram ao exercitar o caminho real.
+The pattern that kept repeating: each piece passed in isolation, the contract between them was wrong. They only showed up once the real path was exercised.
 
-1. **Lockfile guardava hash da fonte para artefato renderizado** → replan reportava conflito permanente, furava FR-14. Corrigido com `contentHash`.
-2. **Mesmo bug em `detectDrift`** (passou batido no primeiro fix) → `doctor` sairia 3 e `sync` gritaria drift em todo projeto saudável.
-3. **Bundles symlinkados para o cache do npx** → link pendura quando o cache é podado, hook morre. Bundle e hook-config agora sempre copiam.
-4. **`parsePatch` travava no envelope do harness** (`claude -p --output-format json`) → consolidação com claude-code nunca funcionaria.
-5. **`settings.json` do usuário era substituído inteiro** → destruía permissions/env/hooks. Agora merge com marcador `__lumem__`, e uninstall faz unmerge preservando edições pós-install.
-6. **`probeVersion` pendurava com pipe** quando grandchild segura stdout (`codex --version` com cache frio, ~43s). Captura por arquivo.
-7. **Corrida de build entre suítes** (`tsup --clean` apagando `dist/` sob spawn paralelo) → quebrava `npm run verify`. `globalSetup` constrói uma vez.
+1. **The lockfile stored the source hash for a rendered artifact** → replan reported a permanent conflict, breaking FR-14. Fixed with `contentHash`.
+2. **Same bug in `detectDrift`** (missed in the first fix) → `doctor` would exit 3 and `sync` would scream drift on every healthy project.
+3. **Bundles symlinked into the npx cache** → the link dangles when the cache is pruned and the hook dies. Bundle and hook-config are now always copied.
+4. **`parsePatch` choked on the harness envelope** (`claude -p --output-format json`) → consolidation with claude-code would never have worked.
+5. **The user's `settings.json` was replaced wholesale** → it destroyed permissions/env/hooks. It now merges with a `__lumem__` marker, and uninstall unmerges while preserving post-install edits.
+6. **`probeVersion` hung on the pipe** when a grandchild holds stdout (`codex --version` on a cold cache, ~43s). Capture now goes through a file.
+7. **Build race between suites** (`tsup --clean` wiping `dist/` under parallel spawn) → broke `npm run verify`. `globalSetup` builds once.
 
-## Decisões tomadas na execução (sem consulta — reverter se discordar)
+## Decisions taken during execution (unprompted — revert if you disagree)
 
-- **Saída da CLI em inglês**, specs seguem em português. Motivo: pacote npm público no M5. Commit isolado (`refactor(cli): saída do usuário toda em inglês`).
-- **Subagents de CLI não tocam `src/cli/index.ts`**: exportam `registerX(program)` e o orquestrador fia. Evita conflito entre agents paralelos.
+- **CLI output in English.** Reason: public npm package at M5. Isolated commit (`refactor(cli): saída do usuário toda em inglês`). Superseded on 2026-08-08 by a broader call from the author: English everywhere in the repo, industry standard, regardless of the language spoken in conversation. Specs and docs were translated; commits up to `9ab512a` remain in Portuguese in git history and were left alone — rewriting 62 commits buys nothing. Commit subjects quoted inside `tasks.md` are the translated plan text and no longer string-match `git log`.
+- **CLI subagents never touch `src/cli/index.ts`**: they export `registerX(program)` and the orchestrator wires it up. Avoids conflicts between parallel agents.
 
-## Pendências reais para uso em produção
+## Real gaps before production use
 
-- **Nenhuma sessão real de agente exercitou o loop completo ainda.** Todo o fluxo foi validado com LLM mockado; a consolidação nunca rodou contra um modelo de verdade. É o próximo passo e o que valida a métrica que importa (>60% de fatos úteis).
-- Mínimo do Codex está em 0.147.0 por ser o release atual, não por ser o mais antigo compatível — ver decisão em aberto #5.
+- **No real agent session has exercised the full loop yet.** The whole flow was validated with a mocked LLM; consolidation has never run against an actual model. That is the next step and the one that validates the metric that matters (>60% useful facts).
+- The Codex minimum sits at 0.147.0 because it is the current release, not because it is the oldest compatible one — see open decision #5.
 
 ## Todos
 
-- [x] Reverificar tabela de capacidades §7.1 contra versões atuais de Claude Code e Codex — feito 2026-08-07, resultado em design.md §0
-- [x] M0: checar disponibilidade do nome `lumem` no npm registry — feito na T1: livre (404)
+- [x] Re-verify the §7.1 capability table against current Claude Code and Codex versions — done 2026-08-07, result in design.md §0
+- [x] M0: check availability of the name `lumem` on the npm registry — done in T1: free (404)
 
 ## Lessons
 
-- [2026-08-07] Tabela de capacidades de harness em PRD envelhece em semanas (Codex: hooks saíram de experimental→estável, skills mudaram de diretório). Fatos de harness devem viver nos descritores versionados + `doctor`, nunca só em doc.
+- [2026-08-07] A harness capability table in a PRD ages within weeks (Codex: hooks went experimental→stable, skills moved directory). Harness facts belong in versioned descriptors + `doctor`, never in a doc alone.
 
 ## Deferred Ideas
 
-- `SecretHit` devia carregar `length`/`end` além de `index`. Sem isso, `redact` (T30) re-deriva o span do segredo por heurística de formato. Funciona e é testado, mas é fragilidade evitável num caminho de segurança — ao mexer em `secrets.ts`, adicionar o campo e apagar `spanEnd()`.
+- `SecretHit` should carry `length`/`end` on top of `index`. Without it, `redact` (T30) re-derives the secret's span from a format heuristic. It works and it is tested, but it is avoidable fragility on a security path — when touching `secrets.ts`, add the field and delete `spanEnd()`.
 
-- Um arquivo por fato (mitigação de conflito de merge em `project.md`) — pós-V1
-- Binário compilado se cold start do Node não fechar NFR-2 — avaliar após medição em M3
+- One file per fact (merge-conflict mitigation for `project.md`) — post-V1
+- Compiled binary if Node cold start does not meet NFR-2 — evaluate after measuring in M3
 
 ## Preferences
 
-- Documentos de spec/projeto em português (idioma do PRD)
+- Everything written in the repo is in English — code, comments, CLI output, specs, docs, commit messages. The author speaks Portuguese in conversation; that does not carry into the artifacts.

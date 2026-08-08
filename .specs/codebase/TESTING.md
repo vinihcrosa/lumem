@@ -1,41 +1,41 @@
 # TESTING — lumem
 
-Contrato de teste do projeto (greenfield; deriva da estratégia aprovada em design.md §Testing Strategy). Criado na fase Tasks; os scripts npm nascem na T1.
+The project's testing contract (greenfield; derived from the strategy approved in design.md §Testing Strategy). Created in the Tasks phase; the npm scripts are born in T1.
 
 ## Test Coverage Matrix
 
-| Camada de código | Tipo exigido | Observação |
+| Code layer | Required type | Note |
 |---|---|---|
-| `src/core/**` (harness, install, memory, capture, consolidate, shared) | **unit** | vitest + fixtures em `mkdtemp`; golden files para parser de fatos e blocos gerenciados |
-| `src/cli/**` (comandos) | **integration** | Executa o comando contra dirs temporários (fake homes); asserta filesystem + stdout `--json` |
-| `src/hooks/main.ts` (entrypoint) | **unit + chaos** | Chaos = exceção, timeout, stdin malformado, disco cheio → sempre exit 0 |
-| `src/runner/main.ts` | **integration** | LLM mockado por script fixture no PATH; nunca chama LLM real em teste |
-| `src/adapters/*.json` (descritores) | **unit** (via schema) | Teste valida cada descritor contra o zod schema |
-| `assets/**` (SKILL.md, agent, templates) | **none** | Dados; validados indiretamente pelos testes de install/manifest |
-| Latência de hook (NFR-2) | **bench** | Script dedicado; assert p95 < 150 ms; roda como step separado no CI |
+| `src/core/**` (harness, install, memory, capture, consolidate, shared) | **unit** | vitest + `mkdtemp` fixtures; golden files for the fact parser and managed blocks |
+| `src/cli/**` (commands) | **integration** | Runs the command against temp dirs (fake homes); asserts filesystem + `--json` stdout |
+| `src/hooks/main.ts` (entrypoint) | **unit + chaos** | Chaos = exception, timeout, malformed stdin, full disk → always exit 0 |
+| `src/runner/main.ts` | **integration** | LLM mocked by a fixture script on the PATH; never calls a real LLM in tests |
+| `src/adapters/*.json` (descriptors) | **unit** (via schema) | Test validates each descriptor against the zod schema |
+| `assets/**` (SKILL.md, agent, templates) | **none** | Data; validated indirectly by the install/manifest tests |
+| Hook latency (NFR-2) | **bench** | Dedicated script; asserts p95 < 150 ms; runs as a separate CI step |
 
 ## Gate Check Commands
 
-| Gate | Comando | Quando |
+| Gate | Command | When |
 |---|---|---|
-| **quick** | `npm run check && npx vitest run <path-dos-testes-da-task>` | Fim de toda task unit |
-| **full** | `npm run verify` (= `biome check . && tsc --noEmit && vitest run && npm run build`) | Fim de task integration / última task de cada fase |
-| **build** | `npm run build` (tsup: `cli.js`, `lumem-hook.mjs`, `lumem-runner.mjs`) | Tasks que só tocam build/packaging |
-| **bench** | `npm run bench:hook` | T34 e CI (step isolado) |
+| **quick** | `npm run check && npx vitest run <path-to-the-task-tests>` | End of every unit task |
+| **full** | `npm run verify` (= `biome check . && tsc --noEmit && vitest run && npm run build`) | End of an integration task / last task of each phase |
+| **build** | `npm run build` (tsup: `cli.js`, `lumem-hook.mjs`, `lumem-runner.mjs`) | Tasks that only touch build/packaging |
+| **bench** | `npm run bench:hook` | T34 and CI (isolated step) |
 
 `npm run check` = `biome check . && tsc --noEmit`.
 
 ## Parallelism Assessment
 
-| Tipo | Parallel-Safe | Motivo |
+| Type | Parallel-Safe | Why |
 |---|---|---|
-| unit | **Sim** | Cada teste cria seu próprio `mkdtemp`; zero estado global |
-| integration | **Sim** | Funções core recebem base dirs explícitos; CLI e2e roda em child process com env próprio — nunca muta `process.env` global do worker |
-| chaos | **Sim** | Mesmo isolamento de unit |
-| bench | **Não** | Sensível a timing; roda sequencial em step de CI dedicado |
+| unit | **Yes** | Each test creates its own `mkdtemp`; zero global state |
+| integration | **Yes** | Core functions take explicit base dirs; the CLI e2e runs in a child process with its own env — never mutates the worker's global `process.env` |
+| chaos | **Yes** | Same isolation as unit |
+| bench | **No** | Timing-sensitive; runs sequentially in a dedicated CI step |
 
-## Regras
+## Rules
 
-- Testes co-locados na task que cria o código — nunca task separada de teste.
-- Contagem total de testes só cresce; suíte sempre verde antes do commit da task.
-- LLM real nunca roda em teste; runner testado com fixture executável mock no PATH.
+- Tests are co-located with the task that creates the code — never a separate test task.
+- The total test count only grows; the suite is always green before the task's commit.
+- A real LLM never runs in tests; the runner is tested with an executable mock fixture on the PATH.

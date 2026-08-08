@@ -1,192 +1,192 @@
-# lumem V1 — Especificação
+# lumem V1 — Specification
 
-**Fonte:** [PRD.md](PRD.md) (Draft, 2026-08-07)
-**Escopo do documento:** toda a V1 (marcos M0–M5). Stories organizadas por prioridade; cada uma mapeia 1:1 para um marco do roadmap.
-**Idioma dos IDs:** categorias `HARN` (harness/adapters), `CLI` (comandos), `INST` (instalador), `MEM` (memória), `CAP` (captura), `CONS` (consolidação), `OPS` (não-funcionais).
+**Source:** [PRD.md](PRD.md) (Draft, 2026-08-07)
+**Document scope:** all of V1 (milestones M0–M5). Stories organized by priority; each maps 1:1 to a roadmap milestone.
+**ID vocabulary:** categories `HARN` (harness/adapters), `CLI` (commands), `INST` (installer), `MEM` (memory), `CAP` (capture), `CONS` (consolidation), `OPS` (non-functional).
 
 ## Problem Statement
 
-Toda sessão de agente de código começa do zero: decisões e seus porquês, correções do usuário, becos sem saída e preferências pessoais se perdem entre sessões. As alternativas atuais ou exigem disciplina manual (`CLAUDE.md`/`AGENTS.md` à mão) ou acoplam a memória a um orquestrador inteiro. Falta uma camada de memória fina, portável e agnóstica de harness que capture conhecimento durável automaticamente e o reinjete nas sessões seguintes.
+Every coding-agent session starts from zero: decisions and their reasoning, user corrections, dead ends and personal preferences are lost between sessions. Today's alternatives either demand manual discipline (hand-written `CLAUDE.md`/`AGENTS.md`) or bolt memory to an entire orchestrator. What is missing is a thin, portable, harness-agnostic memory layer that captures durable knowledge automatically and re-injects it into the sessions that follow.
 
 ## Goals
 
-- [ ] Instalação limpa em repo novo em < 2 min, sem edição manual
-- [ ] **Zero** sessões de agente quebradas pela ferramenta (critério de aceite mais importante)
-- [ ] 5–15 fatos duráveis/semana num repo ativo (abaixo = não captura; acima = ruído)
-- [ ] > 60% dos fatos sobrevivem a revisão manual sem serem apagados
-- [ ] Redução perceptível de reexplicação de contexto relatada pelo time após 2 semanas
+- [ ] Clean install in a new repo in < 2 min, no manual editing
+- [ ] **Zero** agent sessions broken by the tool (the most important acceptance criterion)
+- [ ] 5–15 durable facts/week in an active repo (below = not capturing; above = noise)
+- [ ] > 60% of facts survive a manual review without being deleted
+- [ ] Noticeable reduction in context re-explanation reported by the team after 2 weeks
 
 ## Out of Scope
 
-| Feature | Razão |
+| Feature | Reason |
 |---|---|
-| Geração de skills específicas do repo (tipo Hermes Agent) | V2; V1 valida só a memória |
-| Harnesses além de Claude Code e Codex | Arquitetura de adapter prepara; V1 não entrega |
-| Sync de memória via servidor | Git resolve o suficiente nesta escala |
-| Busca semântica / embeddings | Grep sobre markdown basta |
-| Web UI, dashboard, marketplace | Fora da tese do produto |
-| Orquestração de tarefas / multi-agente | lumem não é orquestrador |
-| Hooks no Windows | CLI funciona; hooks degradam para skill-only (OPS-08) |
+| Generating repo-specific skills (Hermes Agent-style) | V2; V1 validates only the memory |
+| Harnesses beyond Claude Code and Codex | The adapter architecture prepares for it; V1 does not deliver it |
+| Memory sync via server | Git is enough at this scale |
+| Semantic search / embeddings | Grep over markdown is enough |
+| Web UI, dashboard, marketplace | Outside the product thesis |
+| Task orchestration / multi-agent | lumem is not an orchestrator |
+| Hooks on Windows | The CLI works; hooks degrade to skill-only (OPS-08) |
 
-## Decisões assumidas (PRD §13 — defaults adotados, confirmar com o autor)
+## Assumed decisions (PRD §13 — defaults adopted, confirm with the author)
 
-| # | Decisão | Default assumido |
+| # | Decision | Assumed default |
 |---|---|---|
-| 1 | Nome npm | Verificar `lumem` no registry em M0; fallback `@<user>/lumem` com `"bin": {"lumem": ...}` |
-| 2 | `project.md` commitado por padrão? | **Sim** (default do PRD §5.2) |
-| 3 | Runtime da consolidação | Harness em uso (`claude -p` / `codex exec`), modelo barato por padrão, configurável em `lumem.config.json` |
-| 4 | Dois harnesses no mesmo repo | **Memória compartilhada** (mesmo projeto, mesmo conhecimento) |
-| 5 | Versões mínimas de harness | Congelar em M0 ao reverificar a tabela PRD §7.1; gravar em `lumem.config.json` |
+| 1 | npm name | Check `lumem` on the registry in M0; fallback `@<user>/lumem` with `"bin": {"lumem": ...}` |
+| 2 | `project.md` committed by default? | **Yes** (PRD §5.2 default) |
+| 3 | Consolidation runtime | The harness in use (`claude -p` / `codex exec`), cheap model by default, configurable in `lumem.config.json` |
+| 4 | Two harnesses in the same repo | **Shared memory** (same project, same knowledge) |
+| 5 | Minimum harness versions | Freeze in M0 while re-verifying the PRD §7.1 table; record in `lumem.config.json` |
 
-Registradas também em [.specs/project/STATE.md](../../project/STATE.md). Mudança em qualquer uma exige revisão desta spec.
+Also recorded in [.specs/project/STATE.md](../../project/STATE.md). Changing any of them requires revising this spec.
 
 ---
 
 ## User Stories
 
-### P1.1: Diagnóstico de ambiente (M0 — Esqueleto) ⭐ MVP
+### P1.1: Environment diagnosis (M0 — Skeleton) ⭐ MVP
 
-**User Story**: Como dev, quero rodar `npx lumem doctor` e ver quais harnesses existem na minha máquina, com quais capacidades e em qual modo de operação, para saber o que o lumem consegue fazer antes de instalar qualquer coisa.
+**User Story**: As a dev, I want to run `npx lumem doctor` and see which harnesses exist on my machine, with which capabilities and in which operating mode, so I know what lumem can do before installing anything.
 
-**Why P1**: É a fundação de tudo — detecção declarativa de harness é o coração do princípio 5 (adapter é dado). Sem ela, nenhum outro comando sabe onde operar. Critério de saída do M0.
+**Why P1**: It is the foundation of everything — declarative harness detection is the heart of principle 5 (an adapter is data). Without it, no other command knows where to operate. M0 exit criterion.
 
 **Acceptance Criteria**:
 
-1. WHEN `npx lumem doctor` roda numa máquina com Claude Code e Codex instalados THEN o sistema SHALL identificar ambos via regras `detect` dos descritores (`dir`, `bin`), listando versão, capacidades e modo de operação de cada um
-2. WHEN um harness não está presente THEN o sistema SHALL reportá-lo como "não detectado" e sair com código 0 (ausência não é erro)
-3. WHEN uma capacidade está ausente no harness (ex.: sem `SessionStart`) THEN `doctor` SHALL reportar o modo degradado correspondente e qual fallback está ativo (PRD §7.3) — o usuário nunca descobre o modo degradado por acidente
-4. WHEN hooks do Codex estão instalados mas não confiados THEN `doctor` SHALL apontar isso e instruir a rodar `/hooks`
-5. WHEN `lumem status` roda antes de qualquer instalação THEN o sistema SHALL reportar "nada instalado" sem erro
-6. WHEN qualquer comando de leitura recebe `--json` THEN o sistema SHALL emitir saída estruturada estável
-7. WHEN um descritor de adapter é inválido perante o schema THEN o sistema SHALL rejeitá-lo com erro claro apontando o campo, sem crash
-8. WHEN um harness novo é adicionado como descritor JSON válido THEN `doctor` SHALL detectá-lo sem nenhuma alteração em `core/`
+1. WHEN `npx lumem doctor` runs on a machine with Claude Code and Codex installed THEN the system SHALL identify both via the descriptors' `detect` rules (`dir`, `bin`), listing each one's version, capabilities and operating mode
+2. WHEN a harness is not present THEN the system SHALL report it as "not detected" and exit with code 0 (absence is not an error)
+3. WHEN a capability is missing on the harness (e.g. no `SessionStart`) THEN `doctor` SHALL report the corresponding degraded mode and which fallback is active (PRD §7.3) — the user never discovers degraded mode by accident
+4. WHEN Codex hooks are installed but not trusted THEN `doctor` SHALL point that out and instruct the user to run `/hooks`
+5. WHEN `lumem status` runs before any installation THEN the system SHALL report "nothing installed" without an error
+6. WHEN any read command receives `--json` THEN the system SHALL emit stable structured output
+7. WHEN an adapter descriptor is invalid against the schema THEN the system SHALL reject it with a clear error naming the field, without crashing
+8. WHEN a new harness is added as a valid JSON descriptor THEN `doctor` SHALL detect it with no change to `core/`
 
-**Independent Test**: Numa máquina com os dois harnesses, `npx lumem doctor` lista ambos corretamente; remover `~/.codex` do PATH/HOME faz o Codex sumir do relatório sem erro.
+**Independent Test**: On a machine with both harnesses, `npx lumem doctor` lists both correctly; removing `~/.codex` from PATH/HOME makes Codex disappear from the report without an error.
 
 ---
 
-### P1.2: Instalação reversível (M1 — Instalador) ⭐ MVP
+### P1.2: Reversible installation (M1 — Installer) ⭐ MVP
 
-**User Story**: Como dev, quero instalar e desinstalar as skills, hooks e agents do lumem nos meus harnesses de forma idempotente e reversível, para adotar (ou abandonar) a ferramenta sem risco para meus arquivos.
+**User Story**: As a dev, I want to install and uninstall lumem's skills, hooks and agents into my harnesses idempotently and reversibly, so I can adopt (or abandon) the tool with no risk to my files.
 
-**Why P1**: Sem instalador confiável não há adoção. "Nunca sobrescrever o que é do usuário" (princípio 6) é condição de confiança. Critério de saída do M1: instala e desinstala sem resíduo nem tocar conteúdo do usuário.
+**Why P1**: Without a trustworthy installer there is no adoption. "Never overwrite what belongs to the user" (principle 6) is a precondition for trust. M1 exit criterion: installs and uninstalls with no residue and without touching user content.
 
 **Acceptance Criteria**:
 
-1. WHEN `lumem init` roda num repo THEN o sistema SHALL detectar harnesses, perguntar o que instalar, criar `.lumem/` com `lumem.config.json`, `memory/`, `local/` e `.gitignore` cobrindo `local/`
-2. WHEN `lumem install` roda N vezes seguidas THEN o estado em disco após cada execução SHALL ser idêntico (idempotência)
-3. WHEN um artefato é instalado THEN o manifest SHALL declará-lo (id, tipo, versão, hash, destino) e o lockfile `lumem-lock.json` SHALL registrar o que foi instalado, onde, com qual hash e quando
-4. WHEN o destino é um arquivo compartilhado (`CLAUDE.md`, `AGENTS.md`, `hooks.json`) THEN o sistema SHALL escrever somente dentro do bloco `<!-- lumem:start -->` / `<!-- lumem:end -->` e SHALL nunca tocar conteúdo fora dos marcadores
-5. WHEN um arquivo pré-existente será modificado pela primeira vez THEN o sistema SHALL criar backup timestampado antes da escrita
-6. WHEN o usuário editou um arquivo gerenciado (hash difere do lockfile) e roda `sync` THEN o sistema SHALL avisar o drift e SHALL NOT sobrescrever sem `--force`
-7. WHEN `lumem uninstall` roda THEN o sistema SHALL remover tudo que instalou, restaurar os blocos gerenciados ao estado anterior e SHALL preservar a memória — apagá-la exige `--purge` explícito
-8. WHEN qualquer comando que escreve recebe `--dry-run` THEN o sistema SHALL mostrar o diff completo e SHALL NOT aplicar nenhuma escrita
-9. WHEN a instalação usa o modo default THEN artefatos SHALL ser symlinks; com `--copy`, cópias
-10. WHEN `--global` é passado THEN a instalação SHALL ir para o escopo global do harness (ex.: `~/.claude`, `~/.codex`); sem a flag, escopo projeto
-11. WHEN hooks são instalados no Codex THEN o pós-instalação SHALL instruir explicitamente o usuário a rodar `/hooks` para confiar
-12. WHEN o AGENTS.md resultante excederia o limite do harness (`maxBytes` do descritor, ~32 KiB no Codex) THEN o sistema SHALL truncar o bloco gerenciado por prioridade e avisar — nunca estourar o limite
+1. WHEN `lumem init` runs in a repo THEN the system SHALL detect harnesses, ask what to install, create `.lumem/` with `lumem.config.json`, `memory/`, `local/` and a `.gitignore` covering `local/`
+2. WHEN `lumem install` runs N times in a row THEN the on-disk state after each run SHALL be identical (idempotency)
+3. WHEN an artifact is installed THEN the manifest SHALL declare it (id, type, version, hash, destination) and the lockfile `lumem-lock.json` SHALL record what was installed, where, with which hash and when
+4. WHEN the destination is a shared file (`CLAUDE.md`, `AGENTS.md`, `hooks.json`) THEN the system SHALL write only inside the `<!-- lumem:start -->` / `<!-- lumem:end -->` block and SHALL never touch content outside the markers
+5. WHEN a pre-existing file is about to be modified for the first time THEN the system SHALL create a timestamped backup before the write
+6. WHEN the user has edited a managed file (hash differs from the lockfile) and runs `sync` THEN the system SHALL warn about the drift and SHALL NOT overwrite without `--force`
+7. WHEN `lumem uninstall` runs THEN the system SHALL remove everything it installed, restore the managed blocks to their previous state and SHALL preserve memory — deleting it requires an explicit `--purge`
+8. WHEN any command that writes receives `--dry-run` THEN the system SHALL show the complete diff and SHALL NOT apply any write
+9. WHEN the installation uses the default mode THEN artifacts SHALL be symlinks; with `--copy`, copies
+10. WHEN `--global` is passed THEN the installation SHALL go to the harness's global scope (e.g. `~/.claude`, `~/.codex`); without the flag, project scope
+11. WHEN hooks are installed on Codex THEN the post-install step SHALL explicitly instruct the user to run `/hooks` to trust them
+12. WHEN the resulting AGENTS.md would exceed the harness limit (the descriptor's `maxBytes`, ~32 KiB on Codex) THEN the system SHALL truncate the managed block by priority and warn — never blow past the limit
 
-**Independent Test**: `lumem init && lumem install` num repo com `CLAUDE.md` pré-existente contendo texto do usuário; depois `lumem uninstall`. Diff do repo ao final = apenas `.lumem/` de memória (se `--purge` não foi usado); texto do usuário byte a byte intacto.
+**Independent Test**: `lumem init && lumem install` in a repo with a pre-existing `CLAUDE.md` containing user text; then `lumem uninstall`. The repo diff at the end = only `.lumem/` memory (if `--purge` was not used); user text byte-for-byte intact.
 
 ---
 
-### P1.3: Memória manual com injeção via skill (M2 — Memória manual) ⭐ MVP
+### P1.3: Manual memory with injection via skill (M2 — Manual memory) ⭐ MVP
 
-**User Story**: Como dev, quero gravar, listar, buscar e apagar fatos manualmente nos quatro tipos de memória, e ter esse conteúdo injetado no início da sessão do agente dentro de um orçamento, para que o agente pare de me fazer reexplicar o projeto — antes mesmo de existir captura automática.
+**User Story**: As a dev, I want to write, list, search and delete facts by hand across the four memory types, and have that content injected at the start of the agent session within a budget, so the agent stops making me re-explain the project — even before automatic capture exists.
 
-**Why P1**: Fecha o loop de valor mínimo: memória lida e usada pelo agente. M0–M2 entregam valor interno sozinhos (instalador de convenções + memória manual). Critério de saída do M2.
+**Why P1**: It closes the minimum value loop: memory read and used by the agent. M0–M2 deliver internal value on their own (a conventions installer + manual memory). M2 exit criterion.
 
 **Acceptance Criteria**:
 
-1. WHEN `lumem memory add` grava um fato THEN a entrada SHALL ir para o arquivo do tipo/escopo correto (PRD §5.1–5.2) e SHALL carregar proveniência: data, sessão de origem (`manual` quando aplicável) e confiança
-2. WHEN `lumem memory list|show|search <q>` roda THEN o sistema SHALL retornar leitura humana; com `--json`, estruturada
-3. WHEN `lumem memory forget <id>` roda THEN a entrada SHALL ser removida do arquivo correspondente
-4. WHEN a sessão do agente inicia com o hook `SessionStart` disponível THEN o sistema SHALL montar um bloco com memória dos escopos aplicáveis (global + projeto) e injetá-lo como contexto adicional, sem LLM
-5. WHEN o harness não tem `SessionStart` THEN a injeção SHALL degradar para instrução na skill `lumem-memory` ("leia a memória antes de agir")
-6. WHEN o conteúdo total da memória excede o orçamento de injeção (4 KB default, configurável) THEN o sistema SHALL truncar por prioridade, nunca estourar o teto
-7. WHEN o conteúdo a persistir aparenta conter segredo (chave, token, conteúdo de `.env`) THEN o sistema SHALL recusar a gravação e explicar o motivo
-8. WHEN `.lumem/` é criado THEN `local/` SHALL estar gitignored automaticamente; `memory/project.md`, `memory/correction.md` e `lumem.config.json` SHALL ser commitáveis
+1. WHEN `lumem memory add` writes a fact THEN the entry SHALL go to the file for the correct type/scope (PRD §5.1–5.2) and SHALL carry provenance: date, originating session (`manual` where applicable) and confidence
+2. WHEN `lumem memory list|show|search <q>` runs THEN the system SHALL return human-readable output; with `--json`, structured output
+3. WHEN `lumem memory forget <id>` runs THEN the entry SHALL be removed from the corresponding file
+4. WHEN the agent session starts with the `SessionStart` hook available THEN the system SHALL assemble a block with memory from the applicable scopes (global + project) and inject it as additional context, with no LLM
+5. WHEN the harness has no `SessionStart` THEN injection SHALL degrade to an instruction in the `lumem-memory` skill ("read the memory before acting")
+6. WHEN the total memory content exceeds the injection budget (4 KB default, configurable) THEN the system SHALL truncate by priority, never blowing past the ceiling
+7. WHEN the content to be persisted appears to contain a secret (key, token, `.env` content) THEN the system SHALL refuse the write and explain why
+8. WHEN `.lumem/` is created THEN `local/` SHALL be gitignored automatically; `memory/project.md`, `memory/correction.md` and `lumem.config.json` SHALL be committable
 
-**Independent Test**: Gravar 3 fatos com `memory add`, abrir sessão do Claude Code no repo e verificar que o agente cita o conteúdo injetado; `memory search` encontra os fatos; tentativa de gravar uma linha com `AWS_SECRET_ACCESS_KEY=...` é recusada.
+**Independent Test**: Write 3 facts with `memory add`, open a Claude Code session in the repo and check that the agent cites the injected content; `memory search` finds the facts; an attempt to write a line with `AWS_SECRET_ACCESS_KEY=...` is refused.
 
 ---
 
-### P2.1: Captura automática de sinais (M3 — Captura)
+### P2.1: Automatic signal capture (M3 — Capture)
 
-**User Story**: Como dev, quero que hooks registrem sinais brutos da sessão (arquivos tocados, comandos que falharam e passaram, prompts com cara de correção) num diário local, sem LLM e sem eu perceber, para alimentar a consolidação com matéria-prima real.
+**User Story**: As a dev, I want hooks to record raw session signals (files touched, commands that failed and then passed, prompts that look like corrections) into a local journal, with no LLM and without me noticing, so consolidation is fed real raw material.
 
-**Why P2**: É o "auto" do auto-aprendizado, mas depende de P1.2 (hooks instalados) e P1.3 (formato de memória). Critério de saída do M3: sinais no diário, zero sessão quebrada em uma semana.
+**Why P2**: It is the "auto" in auto-learning, but it depends on P1.2 (hooks installed) and P1.3 (memory format). M3 exit criterion: signals in the journal, zero broken sessions in a week.
 
 **Acceptance Criteria**:
 
-1. WHEN um hook de captura dispara (`UserPromptSubmit`, `PostToolUse`) THEN o sistema SHALL fazer append de sinal bruto em `local/sessions/<id>.jsonl` sem nenhuma chamada de LLM
-2. WHEN um comando falha e depois uma variação passa THEN o sistema SHALL registrar sinal de armadilha aprendida
-3. WHEN o prompt do usuário casa com heurística de correção ("na verdade", "não, faz", "sempre que", "nunca") THEN o sistema SHALL apenas **marcar** o sinal no diário — SHALL NOT escrever em memória durável (quem decide é a consolidação)
-4. WHEN o agente invoca a skill `lumem-memory` explicitamente THEN a escrita SHALL ser registrada como sinal de alta confiança
-5. WHEN qualquer hook lança exceção interna THEN o hook SHALL capturá-la, logar em `local/`, e sair com código 0 — a sessão do agente segue intacta (fail-open)
-6. WHEN hooks de captura executam THEN a latência p95 SHALL ser < 150 ms
-7. WHEN o harness não suporta hooks (Windows, Codex sem flag/trust) THEN o sistema SHALL operar em modo skill-only, com captura via skill, e `doctor` SHALL reportar esse modo
-8. WHEN o hook recebe contexto só via stdin (sem env vars) THEN o sistema SHALL resolver o projeto pelo campo `cwd` do payload
+1. WHEN a capture hook fires (`UserPromptSubmit`, `PostToolUse`) THEN the system SHALL append a raw signal to `local/sessions/<id>.jsonl` with no LLM call whatsoever
+2. WHEN a command fails and then a variation of it passes THEN the system SHALL record a learned-trap signal
+3. WHEN the user's prompt matches the correction heuristic ("na verdade", "não, faz", "sempre que", "nunca") THEN the system SHALL only **mark** the signal in the journal — it SHALL NOT write to durable memory (consolidation decides)
+4. WHEN the agent invokes the `lumem-memory` skill explicitly THEN the write SHALL be recorded as a high-confidence signal
+5. WHEN any hook throws an internal exception THEN the hook SHALL catch it, log it in `local/`, and exit with code 0 — the agent session carries on intact (fail-open)
+6. WHEN capture hooks run THEN p95 latency SHALL be < 150 ms
+7. WHEN the harness does not support hooks (Windows, Codex without the flag/trust) THEN the system SHALL operate in skill-only mode, capturing via the skill, and `doctor` SHALL report that mode
+8. WHEN the hook receives context only via stdin (no env vars) THEN the system SHALL resolve the project from the payload's `cwd` field
 
-**Independent Test**: Sessão de 10 min com edições e um comando que falha e depois passa; `cat .lumem/local/sessions/*.jsonl` mostra os sinais tipados. Injetar exceção proposital no hook: sessão do agente não quebra e falha aparece em `local/lumem.log`.
+**Independent Test**: A 10-minute session with edits and a command that fails and then passes; `cat .lumem/local/sessions/*.jsonl` shows the typed signals. Inject a deliberate exception into the hook: the agent session does not break and the failure shows up in `local/lumem.log`.
 
 ---
 
-### P2.2: Consolidação gated (M4 — Consolidação)
+### P2.2: Gated consolidation (M4 — Consolidation)
 
-**User Story**: Como dev, quero que ao fim de sessões relevantes um agente headless transforme o diário bruto em fatos duráveis com proveniência — adicionando, substituindo e removendo — para que conhecimento útil apareça sozinho, sem virar ruído nem custar tokens à toa.
+**User Story**: As a dev, I want a headless agent to turn the raw journal into durable facts with provenance at the end of relevant sessions — adding, replacing and removing — so useful knowledge appears on its own, without becoming noise or burning tokens for nothing.
 
-**Why P2**: É onde o produto vive (métrica-chave: >60% de fatos úteis). Depende de P2.1 (diário) e P1.3 (formato de memória).
+**Why P2**: It is where the product lives (key metric: >60% useful facts). It depends on P2.1 (journal) and P1.3 (memory format).
 
 **Acceptance Criteria**:
 
-1. WHEN `SessionEnd` dispara e o gate está satisfeito THEN o sistema SHALL iniciar a consolidação em processo separado e desanexado e retornar imediatamente — o encerramento da sessão SHALL nunca ser bloqueado
-2. WHEN qualquer condição do gate falha (sinais < N, duração < N min, última consolidação < N h, lock ativo — defaults 5 / 3 min / 6 h) THEN o sistema SHALL NOT chamar LLM
-3. WHEN `lumem memory consolidate --force` roda THEN o sistema SHALL ignorar o gate (exceto o lock) e consolidar
-4. WHEN a consolidação roda THEN ela SHALL usar o agente headless `lumem-consolidator` (harness em uso, runtime barato por default — decisão assumida #3) com o prompt da skill `lumem-consolidate`, incluindo as regras anti-lixo do PRD §5.4
-5. WHEN o LLM retorna o patch THEN o sistema SHALL aplicar adições, substituições e remoções nos arquivos de memória; todo fato adicionado SHALL carregar proveniência (data, `src:sess_*`, `conf:*`)
-6. WHEN um fato novo contradiz um existente THEN o existente SHALL ser substituído, não empilhado
-7. WHEN o patch contém segredo aparente THEN o sistema SHALL recusar persistir a entrada afetada e logar o descarte
-8. WHEN um arquivo de memória excede o soft limit (PRD §5.5) THEN ele SHALL ser marcado e a próxima consolidação SHALL compactar: preservar riscos ativos, decisões e correções recentes; cortar repetição e o que o código já absorveu
-9. WHEN já existe lock de consolidação para o projeto THEN a nova tentativa SHALL ser pulada silenciosamente (log apenas)
-10. WHEN o processo de consolidação falha ou o patch é inválido/não parseável THEN a memória durável SHALL permanecer intacta (aplicação atômica: tudo ou nada) e a falha SHALL ir para o log
-11. WHEN `consolidate --dry-run` roda THEN o sistema SHALL mostrar o patch proposto sem aplicar
+1. WHEN `SessionEnd` fires and the gate is satisfied THEN the system SHALL start consolidation in a separate, detached process and return immediately — session shutdown SHALL never be blocked
+2. WHEN any gate condition fails (signals < N, duration < N min, last consolidation < N h, active lock — defaults 5 / 3 min / 6 h) THEN the system SHALL NOT call an LLM
+3. WHEN `lumem memory consolidate --force` runs THEN the system SHALL skip the gate (except the lock) and consolidate
+4. WHEN consolidation runs THEN it SHALL use the `lumem-consolidator` headless agent (the harness in use, cheap runtime by default — assumed decision #3) with the prompt from the `lumem-consolidate` skill, including the anti-junk rules from PRD §5.4
+5. WHEN the LLM returns the patch THEN the system SHALL apply additions, replacements and removals to the memory files; every added fact SHALL carry provenance (date, `src:sess_*`, `conf:*`)
+6. WHEN a new fact contradicts an existing one THEN the existing one SHALL be replaced, not stacked
+7. WHEN the patch contains an apparent secret THEN the system SHALL refuse to persist the affected entry and log the discard
+8. WHEN a memory file exceeds its soft limit (PRD §5.5) THEN it SHALL be flagged and the next consolidation SHALL compact it: preserve active risks, decisions and recent corrections; cut repetition and whatever the code has already absorbed
+9. WHEN a consolidation lock already exists for the project THEN the new attempt SHALL be skipped silently (log only)
+10. WHEN the consolidation process fails or the patch is invalid/unparseable THEN durable memory SHALL stay intact (atomic application: all or nothing) and the failure SHALL go to the log
+11. WHEN `consolidate --dry-run` runs THEN the system SHALL show the proposed patch without applying it
 
-**Independent Test**: Sessão real com ≥5 sinais e >3 min; fechar a sessão; em até alguns minutos `git diff .lumem/memory/project.md` mostra fatos novos com proveniência. Sessão de 30 s: nenhuma chamada de LLM ocorre (verificável no log).
+**Independent Test**: A real session with ≥5 signals and >3 min; close the session; within a few minutes `git diff .lumem/memory/project.md` shows new facts with provenance. A 30 s session: no LLM call happens (verifiable in the log).
 
 ---
 
-### P3.1: Endurecimento (M5)
+### P3.1: Hardening (M5)
 
-**User Story**: Como mantenedor, quero fail-open provado por teste de injeção de falha, scrub de segredos validado, logs com rotação e docs completas, para tornar o repositório público sem constrangimento nem risco.
+**User Story**: As a maintainer, I want fail-open proven by fault-injection tests, secret scrubbing validated, logs with rotation and complete docs, so I can make the repository public without embarrassment or risk.
 
-**Why P3**: Não adiciona capacidade nova — eleva a confiança das existentes ao nível "público". Vem por último porque endurece o que M0–M4 construíram.
+**Why P3**: It adds no new capability — it raises the confidence in the existing ones to "public" level. It comes last because it hardens what M0–M4 built.
 
 **Acceptance Criteria**:
 
-1. WHEN a suíte de injeção de falha roda contra todos os hooks (exceção, timeout, disco cheio, JSON malformado no stdin) THEN nenhum cenário SHALL quebrar a sessão do agente ou sair com código ≠ 0
-2. WHEN eventos de runtime ocorrem THEN o sistema SHALL logar estruturado em `.lumem/local/lumem.log` com rotação
-3. WHEN a CLI roda qualquer comando fora de `install`/`sync` THEN nenhum acesso de rede SHALL ocorrer (verificável em teste)
-4. WHEN o repo é publicado THEN README e docs SHALL cobrir instalação, modelo de memória, modos degradados e desinstalação
+1. WHEN the fault-injection suite runs against every hook (exception, timeout, full disk, malformed JSON on stdin) THEN no scenario SHALL break the agent session or exit with a code ≠ 0
+2. WHEN runtime events occur THEN the system SHALL log structured output to `.lumem/local/lumem.log` with rotation
+3. WHEN the CLI runs any command other than `install`/`sync` THEN no network access SHALL occur (verifiable in tests)
+4. WHEN the repo is published THEN the README and docs SHALL cover installation, the memory model, degraded modes and uninstallation
 
-**Independent Test**: Rodar a suíte de caos de hooks em CI; auditar chamadas de rede com a CLI em modo runtime; revisar docs contra checklist do M5.
+**Independent Test**: Run the hook chaos suite in CI; audit network calls with the CLI in runtime mode; review the docs against the M5 checklist.
 
 ---
 
 ## Edge Cases
 
-- WHEN os dois harnesses estão instalados no mesmo repo THEN a memória de projeto SHALL ser compartilhada entre eles (decisão assumida #4) e a instalação SHALL registrar artefatos por harness no lockfile
-- WHEN dois devs consolidam no mesmo dia e `project.md` conflita no merge THEN os bullets curtos e independentes SHALL manter o conflito trivial (risco aceito no PRD §5.2)
-- WHEN duas sessões terminam simultaneamente no mesmo projeto THEN o lock SHALL garantir no máximo uma consolidação; a outra é pulada
-- WHEN `SessionEnd` não existe no harness THEN a consolidação SHALL ser manual (`lumem memory consolidate`) e o sistema SHALL sugerir cron
-- WHEN o diário de sessão está vazio ou ausente THEN a consolidação SHALL sair limpa sem chamar LLM
-- WHEN `.lumem/` não existe e um comando `memory *` roda THEN o sistema SHALL orientar a rodar `lumem init` em vez de criar estado implícito
-- WHEN o arquivo de memória contém markdown malformado ou marcador de proveniência corrompido THEN leitura SHALL degradar graciosamente (pula entrada, loga) — nunca crash
-- WHEN o hook roda em repo que não é o do projeto configurado (cwd inesperado) THEN o sinal SHALL ser descartado com log, não gravado no projeto errado
-- WHEN o binário do harness existe mas a versão é menor que a mínima congelada THEN `doctor` SHALL reportar incompatibilidade e o modo de operação SHALL degradar de forma explícita
-- WHEN o usuário remove manualmente um artefato instalado THEN `sync`/`doctor` SHALL reportar o drift entre lockfile e disco
-- WHEN o processo de consolidação fica órfão ou excede timeout THEN o lock SHALL expirar (stale lock) permitindo a próxima consolidação
-- WHEN a memória global (`~/.lumem`) não existe mas a de projeto sim THEN injeção SHALL funcionar só com o escopo disponível
+- WHEN both harnesses are installed in the same repo THEN project memory SHALL be shared between them (assumed decision #4) and the installation SHALL record artifacts per harness in the lockfile
+- WHEN two devs consolidate on the same day and `project.md` conflicts on merge THEN the short, independent bullets SHALL keep the conflict trivial (risk accepted in PRD §5.2)
+- WHEN two sessions end simultaneously in the same project THEN the lock SHALL guarantee at most one consolidation; the other is skipped
+- WHEN `SessionEnd` does not exist on the harness THEN consolidation SHALL be manual (`lumem memory consolidate`) and the system SHALL suggest a cron
+- WHEN the session journal is empty or absent THEN consolidation SHALL exit cleanly without calling an LLM
+- WHEN `.lumem/` does not exist and a `memory *` command runs THEN the system SHALL point the user to run `lumem init` instead of creating implicit state
+- WHEN a memory file contains malformed markdown or a corrupted provenance marker THEN reading SHALL degrade gracefully (skip the entry, log it) — never crash
+- WHEN the hook runs in a repo that is not the configured project (unexpected cwd) THEN the signal SHALL be discarded with a log, not written into the wrong project
+- WHEN the harness binary exists but its version is below the frozen minimum THEN `doctor` SHALL report the incompatibility and the operating mode SHALL degrade explicitly
+- WHEN the user manually removes an installed artifact THEN `sync`/`doctor` SHALL report the drift between lockfile and disk
+- WHEN the consolidation process is orphaned or exceeds its timeout THEN the lock SHALL expire (stale lock), allowing the next consolidation
+- WHEN global memory (`~/.lumem`) does not exist but project memory does THEN injection SHALL work with the available scope alone
 
 ---
 
@@ -226,8 +226,8 @@ Registradas também em [.specs/project/STATE.md](../../project/STATE.md). Mudan�
 | MEM-06 | FR-28 | P1.3 | Design | Verified |
 | MEM-07 | FR-29 | P1.3 | Design | Verified |
 | CAP-01 | FR-22 | P2.1 | - | Verified |
-| CAP-02 | §6 est.2 | P2.1 | - | Verified |
-| CAP-03 | §6 (heurística marca) | P2.1 | - | Verified |
+| CAP-02 | §6 stage 2 | P2.1 | - | Verified |
+| CAP-03 | §6 (heuristic only marks) | P2.1 | - | Verified |
 | CAP-04 | NFR-2 | P2.1 | - | Verified |
 | CONS-01 | FR-23, §6 gate | P2.2 | - | Verified |
 | CONS-02 | FR-24 | P2.2 | - | Verified |
@@ -245,18 +245,18 @@ Registradas também em [.specs/project/STATE.md](../../project/STATE.md). Mudan�
 | OPS-08 | NFR-9 | P1.1, P2.1 | - | Verified |
 | OPS-09 | NFR-10 | P3.1 | - | Verified |
 
-**ID format:** `[CATEGORIA]-[NÚMERO]`. **Status:** Pending → In Design → In Tasks → Implementing → Verified.
+**ID format:** `[CATEGORY]-[NUMBER]`. **Status:** Pending → In Design → In Tasks → Implementing → Verified.
 
-**Coverage:** 50 requisitos; 50 implementados e verificados (T1–T48), 0 pendentes ✅; cobertura PRD: FR-1..FR-32 e NFR-1..NFR-10 todos mapeados ✅
+**Coverage:** 50 requirements; 50 implemented and verified (T1–T48), 0 pending ✅; PRD coverage: FR-1..FR-32 and NFR-1..NFR-10 all mapped ✅
 
 ---
 
 ## Success Criteria
 
-- [ ] `npx lumem doctor` identifica corretamente os dois harnesses (saída M0)
-- [ ] Instala e desinstala sem resíduo nem tocar conteúdo do usuário (saída M1)
-- [ ] Agente lê e usa a memória injetada (saída M2)
-- [ ] Sinais no diário; zero sessão quebrada em uma semana de uso real (saída M3)
-- [ ] Fatos úteis aparecem sozinhos após uso real; >60% sobrevivem a revisão manual (saída M4)
-- [ ] Suíte de injeção de falha verde; zero rede em runtime; docs prontas para repo público (saída M5)
-- [ ] Instalação limpa em < 2 min; 5–15 fatos duráveis/semana em repo ativo (PRD §11)
+- [ ] `npx lumem doctor` correctly identifies both harnesses (M0 exit)
+- [ ] Installs and uninstalls with no residue and without touching user content (M1 exit)
+- [ ] The agent reads and uses the injected memory (M2 exit)
+- [ ] Signals in the journal; zero broken sessions over a week of real use (M3 exit)
+- [ ] Useful facts appear on their own after real use; >60% survive a manual review (M4 exit)
+- [ ] Fault-injection suite green; zero network at runtime; docs ready for a public repo (M5 exit)
+- [ ] Clean install in < 2 min; 5–15 durable facts/week in an active repo (PRD §11)

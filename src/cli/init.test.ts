@@ -70,11 +70,23 @@ describe('runInit on a fresh project', () => {
     expect(fs.statSync(path.join(ctx.projectDir, '.lumem/local')).isDirectory()).toBe(true)
   })
 
-  it('gitignores local/ with exactly that one line', () => {
+  it('gitignores every machine-local path, and nothing else', () => {
     const ctx = makeCtx()
     runInit(ctx)
 
-    expect(read(ctx.projectDir, '.lumem/.gitignore')).toBe('local/\n')
+    // bin/ holds copied build artifacts and the lockfile records absolute
+    // destination paths: committing either hands teammates a conflict over
+    // data that is meaningless on their machine.
+    expect(read(ctx.projectDir, '.lumem/.gitignore')).toBe('local/\nbin/\nlumem-lock.json\n')
+  })
+
+  it('keeps memory and config committable — that is the point of sharing them', () => {
+    const ctx = makeCtx()
+    runInit(ctx)
+
+    const ignored = read(ctx.projectDir, '.lumem/.gitignore').split('\n').filter(Boolean)
+    expect(ignored).not.toContain('memory/')
+    expect(ignored).not.toContain('lumem.config.json')
   })
 
   it('writes an empty lockfile and a readable config', () => {

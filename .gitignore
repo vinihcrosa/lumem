@@ -3,9 +3,11 @@ dist/
 coverage/
 *.tgz
 
-# local harness tooling (not part of the package)
+# local harness tooling (not part of the package). Installed hook configs
+# embed an absolute path to .lumem/bin, so they are per-machine by nature.
 .claude/
 .agents/
+.codex/
 
 # lumem local state (dogfooding)
 .lumem/local/

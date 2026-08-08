@@ -23,11 +23,19 @@ const LUMEM_DIR = '.lumem'
 const LOCK_FILE_NAME = 'lumem-lock.json'
 
 /**
- * `.lumem/local/` is machine-local state (journals, consolidation lock, flags):
- * never committed. Exactly one line, so the file is trivially recognizable as
- * ours and trivially replaceable by the user.
+ * What is machine-local and must never be committed:
+ *
+ * - `local/` — journals, consolidation lock, flags, logs, backups.
+ * - `bin/` — the hook and runner bundles, copied here at install time. Build
+ *   artifacts, ~200 KB, and rebuilt by `lumem install` on every machine.
+ * - `lumem-lock.json` — records absolute destination paths and per-machine
+ *   install state. Committing it means a permanent merge conflict between two
+ *   developers whose paths differ, over data neither can use.
+ *
+ * What stays committed on purpose: `memory/` and `lumem.config.json` — the
+ * knowledge and the settings, which is the whole point of sharing them.
  */
-const GITIGNORE_CONTENT = 'local/\n'
+const GITIGNORE_CONTENT = 'local/\nbin/\nlumem-lock.json\n'
 
 interface PlannedEntry {
   /** Path relative to `ctx.projectDir`, always with forward slashes. */

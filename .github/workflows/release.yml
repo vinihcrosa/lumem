@@ -1,0 +1,88 @@
+name: Release
+
+# Publishing is deliberate: push a tag that matches the version in package.json.
+#
+#   npm version patch     # bumps package.json and creates the tag
+#   git push --follow-tags
+#
+# `workflow_dispatch` is the escape hatch for re-running a failed publish; it
+# will refuse if that version is already on the registry.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Required for npm provenance: the signed attestation linking the published
+  # tarball to this workflow run and this commit.
+  id-token: write
+
+jobs:
+  publish:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      # A tag that disagrees with package.json publishes the wrong version under
+      # the right name, and npm has no undo. Fail here instead.
+      - name: Tag must match package.json
+        if: github.event_name == 'push'
+        run: |
+          set -eu
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package.json version $pkg" >&2
+            exit 1
+          fi
+          echo "publishing $pkg"
+
+      - name: Refuse to republish an existing version
+        run: |
+          set -eu
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published — bump the version" >&2
+            exit 1
+          fi
+
+      - name: Lint and typecheck
+        run: npm run check
+
+      - name: Test
+        run: npm test
+
+      - name: Verify the published package
+        run: npm run verify:pack
+
+      # `prepublishOnly` re-runs the full verify during publish. The pack test
+      # inside it would repeat the job above for several minutes, so it is
+      # skipped here — `verify:pack` already ran, on this exact commit.
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SKIP_PACK_TEST: '1'
+
+      - name: Summary
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          {
+            echo "### Published \`lumem@$version\`"
+            echo
+            echo '```bash'
+            echo "npx lumem@$version init"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

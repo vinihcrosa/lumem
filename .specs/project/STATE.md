@@ -93,3 +93,25 @@ The one failure, and why it is the prompt's fault:
 - **Unverified.** Confirming the variance is gone needs another real run; mock replays fixed answers and cannot measure it.
 
 Cost signal: the prompt is ~16.8 KB per call (measured, `promptBytes` in the results file).
+
+## Releasing
+
+Two workflows in `.github/workflows/`:
+
+- **`ci.yml`** — every push to `main` and every PR. Lint + typecheck + tests on Node 20/22/24 (Linux) and 22 (macOS), one job that packs the tarball and drives the installed binary end to end, and a hook-latency bench. The bench runs with a relaxed budget (`BENCH_BUDGET_MS=400`): shared runners are slower and noisier than a laptop, so its job is catching a real regression, not re-measuring NFR-2. The number that counts is the local one (p95 ~33 ms).
+- **`release.yml`** — publishes on a `v*` tag. Refuses to run if the tag disagrees with `package.json`, or if that version already exists on the registry. Publishes with `--provenance`.
+
+To cut a release:
+
+```bash
+npm version patch      # or minor / major — bumps package.json and tags
+git push --follow-tags
+```
+
+**One-time setup, and it can only be done by the repo owner:**
+
+1. **Publish credentials.** Either (preferred) configure npm Trusted Publishing for `lumem` pointing at `vinihcrosa/lumem` + `release.yml`, which needs no long-lived token — or create an npm **Automation** token and add it as the `NPM_TOKEN` secret. The workflow works with either; with trusted publishing the `NODE_AUTH_TOKEN` line is simply unused.
+2. **The repo must be public** for `--provenance` to work. On a private repo the publish step fails; drop the flag if it stays private.
+3. The workflow references an `npm` environment. GitHub creates it on first use; add required reviewers there if a publish should need approval.
+
+The eval harness is deliberately **not** in CI: it spends tokens and needs the network, which every other job is built to avoid.

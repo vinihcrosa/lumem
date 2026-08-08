@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch cancels the first: nothing here needs to
+# finish once its result is stale.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Node 20 is the floor declared in engines; 22 and 24 are the versions
+        # people actually run. macOS gets one job — NFR-9 supports it, and
+        # macOS runners cost 10x the minutes.
+        os: [ubuntu-latest]
+        node: ['20', '22', '24']
+        include:
+          - os: macos-latest
+            node: '22'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint and typecheck
+        run: npm run check
+
+      # The packaging integration test packs and installs the tarball, which
+      # takes minutes. Running it on all four configs would repeat identical
+      # work; the dedicated `pack` job below does it once.
+      - name: Test
+        run: npm test
+        env:
+          SKIP_PACK_TEST: '1'
+
+      - name: Build
+        run: npm run build
+
+  pack:
+    name: tarball is npx-ready
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # Packs, extracts, installs the tarball into a clean directory and drives
+      # the installed binary end to end. This is what guarantees `npx lumem`
+      # works for someone who has never seen this repo — the failure mode it
+      # catches (a file missing from `files`) is invisible in the dev layout.
+      - name: Verify the published package
+        run: npm run verify:pack
+
+  bench:
+    name: hook latency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      # NFR-2 budgets the hook at p95 < 150 ms, measured on a developer machine
+      # (~33 ms there). A shared CI runner is slower and noisier, so the budget
+      # is relaxed here: this job exists to catch a real regression — a bundle
+      # that balloons, a synchronous read that creeps in — not to re-measure the
+      # requirement. The number that counts is the local one.
+      - name: Bench
+        run: npm run bench:hook
+        env:
+          BENCH_BUDGET_MS: '400'
+          BENCH_RUNS: '40'

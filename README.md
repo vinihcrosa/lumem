@@ -1,5 +1,8 @@
 # lumem
 
+[![CI](https://github.com/vinihcrosa/lumem/actions/workflows/ci.yml/badge.svg)](https://github.com/vinihcrosa/lumem/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/lumem.svg)](https://www.npmjs.com/package/lumem)
+
 Memory for coding agents. Your agent learns what your project is and how you work, and remembers it in the next session.
 
 It attaches to the agent you already use — Claude Code, Codex — through their own skills and hooks. It does not replace your agent, wrap it, or add a pipeline.

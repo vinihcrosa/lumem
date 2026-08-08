@@ -1,10 +1,70 @@
 ---
 name: lumem-memory
-description: Read and write durable project memory during the session. Use when the user corrects you, states a preference, records a decision, or asks what the project memory knows.
+description: Durable project memory. Read it before proposing architecture or conventions; write to it when the user corrects you, states a preference, or settles a decision. Use when you need to know why the project is the way it is, or when something worth remembering just happened.
 ---
 
-# lumem-memory (stub — completed in T27)
+# lumem-memory
 
-Read memory before acting: run `lumem memory context` and treat its output as project context.
+Memory that survives across sessions. Four kinds, each with its own scope:
 
-Write only durable, falsifiable facts: `lumem memory add --type <project|preference|correction> "<fact>"`.
+| Type | Holds | Scope |
+|---|---|---|
+| `project` | Architecture, conventions, decisions **and their reasons**, repo pitfalls | this repo, committed |
+| `correction` | Explicit corrections the user made to you | this repo, committed |
+| `preference` | How this developer works: style, tone, tolerances | global, not committed |
+
+## Reading
+
+Run this before acting on anything architectural, and at the start of a session when no memory block was injected for you:
+
+```bash
+lumem memory context
+```
+
+It prints a budgeted block: corrections first, then project facts, then preferences. Treat it as established context about this repo — not as suggestions. If a fact contradicts what you were about to propose, the fact wins unless the user says otherwise.
+
+Other reads:
+
+```bash
+lumem memory list                  # everything, with ids
+lumem memory search "auth"         # substring search
+lumem memory show <id>             # one fact with full provenance
+```
+
+## Writing
+
+Write when something durable just happened — do not wait to be asked:
+
+```bash
+lumem memory add "<fact>" --type project
+lumem memory add "<fact>" --type correction
+lumem memory add "<fact>" --type preference
+```
+
+Write when:
+
+- The user corrects you, especially the same way twice.
+- A decision gets made and the reason matters later ("we dropped JWT because revocation had to be immediate").
+- You hit a dead end worth not repeating ("the e2e suite needs the docker daemon up first; without it the failure is a misleading timeout").
+- The user states how they want you to work.
+
+## What does NOT belong in memory
+
+This is what separates useful memory from noise:
+
+- **Anything the repo already says.** If it is in the code, the README, the git log, or a spec, it is not memory. Memory holds what would otherwise be lost.
+- **Anything unfalsifiable.** "The user prefers clean code" is noise. "The user rejects comments that restate the function name" is a fact.
+- **Anything speculative.** Only what you actually observed this session.
+- **Anything secret.** Keys, tokens, `.env` contents. Writes are scanned and refused, but do not rely on the scanner — do not try.
+
+Prefer removing over accumulating. When a new fact contradicts an old one, replace it:
+
+```bash
+lumem memory forget <id>
+```
+
+## Notes
+
+- Facts carry provenance (date, session, confidence) automatically. You do not write it.
+- Project memory is committed, so it lands in review. Write facts a teammate would want to read.
+- `--dry-run` on any write shows what would happen without touching disk.

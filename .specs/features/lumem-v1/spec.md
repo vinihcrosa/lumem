@@ -194,60 +194,60 @@ Registradas também em [.specs/project/STATE.md](../../project/STATE.md). Mudan�
 
 | Requirement ID | PRD | Story | Phase | Status |
 |---|---|---|---|---|
-| HARN-01 | §7.2 | P1.1 | Design | In Tasks |
-| HARN-02 | §7.2 (schema) | P1.1 | Design | In Tasks |
-| HARN-03 | §7.3 | P1.1 | Design | In Tasks |
-| HARN-04 | FR-6, §7.3 | P1.1 | Design | In Tasks |
-| CLI-01 | FR-1 | P1.2 | Design | In Tasks |
-| CLI-02 | FR-2 | P1.2 | Design | In Tasks |
-| CLI-03 | FR-3 | P1.2 | Design | In Tasks |
-| CLI-04 | FR-4 | P1.2 | Design | In Tasks |
-| CLI-05 | FR-5 | P1.1 | Design | In Tasks |
-| CLI-06 | FR-6 | P1.1 | Design | In Tasks |
-| CLI-07 | FR-7 | P1.3 | Design | In Tasks |
-| CLI-08 | FR-8 | P1.3 | Design | In Tasks |
-| CLI-09 | FR-9 | P2.2 | Design | In Tasks |
-| CLI-10 | FR-10 | P1.2, P2.2 | Design | In Tasks |
-| CLI-11 | FR-11 | P1.1, P1.3 | Design | In Tasks |
-| INST-01 | FR-12 | P1.2 | Design | In Tasks |
-| INST-02 | FR-13 | P1.2 | Design | In Tasks |
-| INST-03 | FR-14 | P1.2 | Design | In Tasks |
-| INST-04 | FR-15 | P1.2 | Design | In Tasks |
-| INST-05 | FR-16 | P1.2 | Design | In Tasks |
-| INST-06 | FR-17 | P1.2 | Design | In Tasks |
-| INST-07 | FR-18 | P1.2 | Design | In Tasks |
-| INST-08 | FR-19 | P1.2 | Design | In Tasks |
-| INST-09 | FR-20 | P1.2 | Design | In Tasks |
-| MEM-01 | §5.1–5.2 | P1.3 | Design | In Tasks |
-| MEM-02 | FR-25, §5.3 | P1.3, P2.2 | Design | In Tasks |
-| MEM-03 | FR-21, §5.5 | P1.3 | Design | In Tasks |
-| MEM-04 | FR-26, §5.5 | P2.2 | Design | In Tasks |
-| MEM-05 | FR-27 | P1.3, P2.2 | Design | In Tasks |
-| MEM-06 | FR-28 | P1.3 | Design | In Tasks |
-| MEM-07 | FR-29 | P1.3 | Design | In Tasks |
-| CAP-01 | FR-22 | P2.1 | - | In Tasks |
-| CAP-02 | §6 est.2 | P2.1 | - | In Tasks |
-| CAP-03 | §6 (heurística marca) | P2.1 | - | In Tasks |
-| CAP-04 | NFR-2 | P2.1 | - | In Tasks |
-| CONS-01 | FR-23, §6 gate | P2.2 | - | In Tasks |
-| CONS-02 | FR-24 | P2.2 | - | In Tasks |
-| CONS-03 | FR-30, §5.4 | P2.2 | - | In Tasks |
-| CONS-04 | FR-31 | P2.2 | - | In Tasks |
-| CONS-05 | §6 (lock) | P2.2 | - | In Tasks |
-| CONS-06 | FR-32 | P2.1, P2.2 | - | In Tasks |
-| OPS-01 | NFR-1 | P2.1, P3.1 | - | In Tasks |
-| OPS-02 | NFR-3 | P3.1 | - | In Tasks |
-| OPS-03 | NFR-4 | P1.1 | Design | In Tasks |
-| OPS-04 | NFR-5 | P1.1 | Design | In Tasks |
-| OPS-05 | NFR-6 | P2.1 | - | In Tasks |
-| OPS-06 | NFR-7 | P1.2 | Design | In Tasks |
-| OPS-07 | NFR-8 | P3.1 | - | In Tasks |
-| OPS-08 | NFR-9 | P1.1, P2.1 | - | In Tasks |
-| OPS-09 | NFR-10 | P3.1 | - | In Tasks |
+| HARN-01 | §7.2 | P1.1 | Design | Verified |
+| HARN-02 | §7.2 (schema) | P1.1 | Design | Verified |
+| HARN-03 | §7.3 | P1.1 | Design | Verified |
+| HARN-04 | FR-6, §7.3 | P1.1 | Design | Verified |
+| CLI-01 | FR-1 | P1.2 | Design | Verified |
+| CLI-02 | FR-2 | P1.2 | Design | Verified |
+| CLI-03 | FR-3 | P1.2 | Design | Verified |
+| CLI-04 | FR-4 | P1.2 | Design | Verified |
+| CLI-05 | FR-5 | P1.1 | Design | Verified |
+| CLI-06 | FR-6 | P1.1 | Design | Verified |
+| CLI-07 | FR-7 | P1.3 | Design | Verified |
+| CLI-08 | FR-8 | P1.3 | Design | Verified |
+| CLI-09 | FR-9 | P2.2 | Design | Verified |
+| CLI-10 | FR-10 | P1.2, P2.2 | Design | Verified |
+| CLI-11 | FR-11 | P1.1, P1.3 | Design | Verified |
+| INST-01 | FR-12 | P1.2 | Design | Verified |
+| INST-02 | FR-13 | P1.2 | Design | Verified |
+| INST-03 | FR-14 | P1.2 | Design | Verified |
+| INST-04 | FR-15 | P1.2 | Design | Verified |
+| INST-05 | FR-16 | P1.2 | Design | Verified |
+| INST-06 | FR-17 | P1.2 | Design | Verified |
+| INST-07 | FR-18 | P1.2 | Design | Verified |
+| INST-08 | FR-19 | P1.2 | Design | Verified |
+| INST-09 | FR-20 | P1.2 | Design | Verified |
+| MEM-01 | §5.1–5.2 | P1.3 | Design | Verified |
+| MEM-02 | FR-25, §5.3 | P1.3, P2.2 | Design | Verified |
+| MEM-03 | FR-21, §5.5 | P1.3 | Design | Verified |
+| MEM-04 | FR-26, §5.5 | P2.2 | Design | Verified |
+| MEM-05 | FR-27 | P1.3, P2.2 | Design | Verified |
+| MEM-06 | FR-28 | P1.3 | Design | Verified |
+| MEM-07 | FR-29 | P1.3 | Design | Verified |
+| CAP-01 | FR-22 | P2.1 | - | Verified |
+| CAP-02 | §6 est.2 | P2.1 | - | Verified |
+| CAP-03 | §6 (heurística marca) | P2.1 | - | Verified |
+| CAP-04 | NFR-2 | P2.1 | - | Verified |
+| CONS-01 | FR-23, §6 gate | P2.2 | - | Verified |
+| CONS-02 | FR-24 | P2.2 | - | Verified |
+| CONS-03 | FR-30, §5.4 | P2.2 | - | Verified |
+| CONS-04 | FR-31 | P2.2 | - | Verified |
+| CONS-05 | §6 (lock) | P2.2 | - | Verified |
+| CONS-06 | FR-32 | P2.1, P2.2 | - | Verified |
+| OPS-01 | NFR-1 | P2.1, P3.1 | - | Verified |
+| OPS-02 | NFR-3 | P3.1 | - | Verified |
+| OPS-03 | NFR-4 | P1.1 | Design | Verified |
+| OPS-04 | NFR-5 | P1.1 | Design | Verified |
+| OPS-05 | NFR-6 | P2.1 | - | Verified |
+| OPS-06 | NFR-7 | P1.2 | Design | Verified |
+| OPS-07 | NFR-8 | P3.1 | - | Verified |
+| OPS-08 | NFR-9 | P1.1, P2.1 | - | Verified |
+| OPS-09 | NFR-10 | P3.1 | - | Verified |
 
 **ID format:** `[CATEGORIA]-[NÚMERO]`. **Status:** Pending → In Design → In Tasks → Implementing → Verified.
 
-**Coverage:** 50 requisitos; 50 mapeados a tasks em [tasks.md](tasks.md) (T1–T48), 0 sem mapeamento ✅; cobertura PRD: FR-1..FR-32 e NFR-1..NFR-10 todos mapeados ✅
+**Coverage:** 50 requisitos; 50 implementados e verificados (T1–T48), 0 pendentes ✅; cobertura PRD: FR-1..FR-32 e NFR-1..NFR-10 todos mapeados ✅
 
 ---
 

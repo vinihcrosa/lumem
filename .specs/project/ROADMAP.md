@@ -4,12 +4,12 @@ Marcos do PRD §14. M0–M2 entregam valor interno sozinhos (instalador de conve
 
 | Marco | Entrega | Critério de saída | Status |
 |---|---|---|---|
-| M0 — Esqueleto | CLI TS, detecção de harness, `doctor`, `status` | `npx lumem doctor` identifica corretamente os dois harnesses | Pending |
-| M1 — Instalador | Manifest, lockfile, blocos gerenciados, `install`/`uninstall`/`--dry-run` | Instala e desinstala sem deixar resíduo nem tocar conteúdo do usuário | Pending |
-| M2 — Memória manual | Formato de arquivo, comandos `memory *`, injeção via skill | Agente lê e usa a memória; escrita ainda é manual | Pending |
-| M3 — Captura | Hooks de sinal nos dois harnesses, diário de sessão | Sinais aparecem no diário; zero sessão quebrada em uma semana de uso | Pending |
-| M4 — Consolidação | Skill + agent de consolidação, gate, compactação | Fatos úteis aparecem sozinhos após uso real | Pending |
-| M5 — Endurecimento | Fail-open testado, scrub de segredo, docs, README | Pronto para tornar o repositório público | Pending |
+| M0 — Esqueleto | CLI TS, detecção de harness, `doctor`, `status` | `npx lumem doctor` identifica corretamente os dois harnesses | ✅ Done |
+| M1 — Instalador | Manifest, lockfile, blocos gerenciados, `install`/`uninstall`/`--dry-run` | Instala e desinstala sem deixar resíduo nem tocar conteúdo do usuário | ✅ Done |
+| M2 — Memória manual | Formato de arquivo, comandos `memory *`, injeção via skill | Agente lê e usa a memória; escrita ainda é manual | ✅ Done |
+| M3 — Captura | Hooks de sinal nos dois harnesses, diário de sessão | Sinais aparecem no diário; zero sessão quebrada em uma semana de uso | ✅ Done |
+| M4 — Consolidação | Skill + agent de consolidação, gate, compactação | Fatos úteis aparecem sozinhos após uso real | ✅ Done |
+| M5 — Endurecimento | Fail-open testado, scrub de segredo, docs, README | Pronto para tornar o repositório público | ✅ Done |
 
 ## Mapeamento marco → stories da spec
 

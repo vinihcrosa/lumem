@@ -1,7 +1,7 @@
 # lumem V1 — Tasks
 
 **Design**: [design.md](design.md) · **Spec**: [spec.md](spec.md) · **Testing**: [../../codebase/TESTING.md](../../codebase/TESTING.md)
-**Status**: In Progress — M0–M4 completos; falta T47 (packaging) e T48 (docs)
+**Status**: Done — 48/48 tasks, M0–M5 completos
 
 **Convenções:**
 - Tools (todas as tasks): ferramentas built-in de arquivo + Bash. MCP: NONE. Skills: NONE. Exceções anotadas na task.
@@ -512,7 +512,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(shared): rotação de log`
 
-### T47: Packaging + zero-install [P]
+### T47: Packaging + zero-install [P] ✅
 **What**: `files` whitelist, `prepublishOnly`, bin permissions; validar `npm pack` + instalação do tarball + `npx` em dir limpo; publicar nome conforme decisão #1 (registrada na T1).
 **Where**: `package.json`, `scripts/verify-pack.sh`
 **Depends on**: T1, T41 · **Reuses**: — · **Requirement**: OPS-03
@@ -521,7 +521,7 @@ T1,T41 ──→ T47 [P]
 **Tests**: integration (script) · **Gate**: build + script
 **Commit**: `chore: packaging npx-ready`
 
-### T48: README + docs
+### T48: README + docs ✅
 **What**: README (quickstart, modelo de memória, modos degradados, uninstall), docs de config e troubleshooting; **Saída M5**: checklist de publicação.
 **Where**: `README.md`, `docs/`
 **Depends on**: T44, T45, T46, T47 · **Reuses**: specs · **Requirement**: P3.1 AC4

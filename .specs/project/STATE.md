@@ -23,14 +23,40 @@
 
 ## Blockers
 
-- [2026-08-07] Limite de sessão do Claude atingido durante a fase Execute (reset 20h America/Sao_Paulo). Agents de T14, T22, T23, T37 morreram no meio; arquivos RED órfãos removidos, repo verde (246 testes). Retomar relançando essas 4 tasks.
+(nenhum — V1 completa)
 
-## Handoff de execução (para retomar)
+## Estado atual (2026-08-08)
 
-**Concluídas e commitadas (16):** T1–T7 (M0 completo ✅ — doctor real identifica os 2 harnesses), T8–T13, T20, T21.
-**Próximas (deps satisfeitas):** T14 (apply), T22 (budget), T23 (limits), T37 (patch) — relançar; depois T15/T16 (precisam T14), T24/T26 (precisam T22), T25 (livre, src/cli).
-**Regra nova de orquestração:** subagents de comandos CLI NÃO tocam `src/cli/index.ts` — exportam `registerX(program)` e o orquestrador fia no index (evita conflito entre agents paralelos).
-**Fix pendente (fora de task, achado no T7):** `probeVersion` em `src/core/harness/detect.ts` pendura quando grandchild segura o pipe do stdout (codex --version com cache frio ~43s; spawnSync timeout não resolve). Fix: capturar stdout/stderr via arquivo temp (fd), não pipe; teste com bin fixture que spawna filho background segurando stdout — duração < 2s.
+**48/48 tasks, M0–M5 completos.** 62 commits, 1052 testes em 43 arquivos, `npm run verify` verde em três rodadas consecutivas.
+
+Verificado contra binário real, não só em teste:
+- `doctor` identifica os dois harnesses instalados com grade e fallbacks
+- install → uninstall devolve todo arquivo do usuário byte-idêntico, inclusive `.claude/settings.json` pré-existente
+- ciclo de memória ponta a ponta pelo bundle instalado: injeção priorizada, captura de correção no diário, recusa de segredo com exit 1
+- tarball empacotado instala em dir limpo e roda a CLI completa (`verify-pack.sh`)
+- latência de hook p95 33 ms (teto NFR-2: 150 ms); 185 invocações de chaos, todas exit 0
+
+### Bugs de integração achados por smoke/chaos (todos com regressão)
+
+Padrão que se repetiu: cada peça passava isolada, o contrato entre elas estava errado. Só apareceram ao exercitar o caminho real.
+
+1. **Lockfile guardava hash da fonte para artefato renderizado** → replan reportava conflito permanente, furava FR-14. Corrigido com `contentHash`.
+2. **Mesmo bug em `detectDrift`** (passou batido no primeiro fix) → `doctor` sairia 3 e `sync` gritaria drift em todo projeto saudável.
+3. **Bundles symlinkados para o cache do npx** → link pendura quando o cache é podado, hook morre. Bundle e hook-config agora sempre copiam.
+4. **`parsePatch` travava no envelope do harness** (`claude -p --output-format json`) → consolidação com claude-code nunca funcionaria.
+5. **`settings.json` do usuário era substituído inteiro** → destruía permissions/env/hooks. Agora merge com marcador `__lumem__`, e uninstall faz unmerge preservando edições pós-install.
+6. **`probeVersion` pendurava com pipe** quando grandchild segura stdout (`codex --version` com cache frio, ~43s). Captura por arquivo.
+7. **Corrida de build entre suítes** (`tsup --clean` apagando `dist/` sob spawn paralelo) → quebrava `npm run verify`. `globalSetup` constrói uma vez.
+
+## Decisões tomadas na execução (sem consulta — reverter se discordar)
+
+- **Saída da CLI em inglês**, specs seguem em português. Motivo: pacote npm público no M5. Commit isolado (`refactor(cli): saída do usuário toda em inglês`).
+- **Subagents de CLI não tocam `src/cli/index.ts`**: exportam `registerX(program)` e o orquestrador fia. Evita conflito entre agents paralelos.
+
+## Pendências reais para uso em produção
+
+- **Nenhuma sessão real de agente exercitou o loop completo ainda.** Todo o fluxo foi validado com LLM mockado; a consolidação nunca rodou contra um modelo de verdade. É o próximo passo e o que valida a métrica que importa (>60% de fatos úteis).
+- Mínimo do Codex está em 0.147.0 por ser o release atual, não por ser o mais antigo compatível — ver decisão em aberto #5.
 
 ## Todos
 

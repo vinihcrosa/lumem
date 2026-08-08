@@ -5,6 +5,7 @@ import { type CliContext, resolveAdaptersDir } from './context'
 import { renderDoctor, runDoctor } from './doctor'
 import { registerInitCommand } from './init'
 import { registerInstallCommand } from './install'
+import { registerMemoryConsolidateCommand } from './memory-consolidate'
 import { registerMemoryContextCommand } from './memory-context'
 import { registerMemoryReadCommands } from './memory-read'
 import { registerMemoryWriteCommands } from './memory-write'
@@ -66,6 +67,7 @@ const memory = program.command('memory').description('Read and write durable mem
 registerMemoryReadCommands(memory, buildContext, emit)
 registerMemoryWriteCommands(memory, buildContext, emit)
 registerMemoryContextCommand(memory, buildContext)
+registerMemoryConsolidateCommand(memory, buildContext, emit)
 
 program.parseAsync().catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err))

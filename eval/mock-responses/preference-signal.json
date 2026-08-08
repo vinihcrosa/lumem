@@ -1,0 +1,32 @@
+{
+  "description": "Filed as preference/global — it is about the developer, not about this repo.",
+  "responses": [
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "preference",
+          "scope": "global",
+          "body": "Wants the actual diff before being asked to approve a change; a prose summary of what changed is not enough and will not get an answer.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "preference",
+          "scope": "global",
+          "body": "Reviews changes as patches: show the diff first, ask for approval second.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    "```json\n{\"version\":1,\"add\":[{\"type\":\"preference\",\"scope\":\"global\",\"body\":\"Expects to see the diff before any approval request; a description of the change is not a substitute.\",\"conf\":\"high\"}],\"replace\":[],\"remove\":[]}\n```"
+  ]
+}

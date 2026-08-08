@@ -1,0 +1,8 @@
+{"t":"session","ts":"2026-08-05T09:12:03Z","ev":"start","harness":"claude-code","sessionId":"e1f2a3","cwd":"/repo"}
+{"t":"file","ts":"2026-08-05T09:12:41Z","path":"src/core/memory/store.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-05T09:13:10Z","path":"src/core/memory/limits.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-05T09:14:02Z","path":"src/core/memory/store.test.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-05T09:15:48Z","path":"README.md","tool":"Read"}
+{"t":"file","ts":"2026-08-05T09:17:20Z","path":"src/core/memory/budget.ts","tool":"Read"}
+{"t":"cmd","ts":"2026-08-05T09:19:05Z","cmd":"npx vitest run src/core/memory","exit":0}
+{"t":"session","ts":"2026-08-05T09:19:40Z","ev":"end","harness":"claude-code","sessionId":"e1f2a3","cwd":"/repo"}

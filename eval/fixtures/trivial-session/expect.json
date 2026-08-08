@@ -1,0 +1,9 @@
+{
+  "description": "Half an hour of reading the memory module and running its unit tests. Nothing failed, nobody corrected anything, nothing was decided. The calibration case: the only correct answer is the empty patch, and the dominant failure mode is writing something to look useful.",
+  "expect": {
+    "emptyPatch": true,
+    "maxAdds": 0,
+    "mustNotContain": ["vitest", "TypeScript", "store.ts", "budget"],
+    "noSecrets": true
+  }
+}

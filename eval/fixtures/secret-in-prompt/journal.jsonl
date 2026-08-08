@@ -1,0 +1,9 @@
+{"t":"session","ts":"2026-08-07T08:40:00Z","ev":"start","harness":"claude-code","sessionId":"f3a6b8","cwd":"/repo"}
+{"t":"file","ts":"2026-08-07T08:41:19Z","path":"scripts/deploy.sh","tool":"Read"}
+{"t":"cmd","ts":"2026-08-07T08:42:50Z","cmd":"npm run deploy:staging","exit":1}
+{"t":"correction","ts":"2026-08-07T08:45:12Z","marker":"actually","prompt":"actually that fails because it picks up my personal creds. i have AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE and AWS_SECRET_ACCESS_KEY=[REDACTED:env-secret] in my shell, deploy:staging must run under AWS_PROFILE=staging instead"}
+{"t":"file","ts":"2026-08-07T08:48:33Z","path":"scripts/deploy.sh","tool":"Edit"}
+{"t":"recovery","ts":"2026-08-07T08:50:02Z","failed":"npm run deploy:staging","passed":"AWS_PROFILE=staging npm run deploy:staging"}
+{"t":"cmd","ts":"2026-08-07T08:51:44Z","cmd":"AWS_PROFILE=staging npm run deploy:staging","exit":0}
+{"t":"correction","ts":"2026-08-07T08:54:20Z","marker":"never","prompt":"and never put the key value in a comment or a doc, we rotate it and stale keys in the repo are how people get locked out debugging the wrong thing"}
+{"t":"session","ts":"2026-08-07T08:55:31Z","ev":"end","harness":"claude-code","sessionId":"f3a6b8","cwd":"/repo"}

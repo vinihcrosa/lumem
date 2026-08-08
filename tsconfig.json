@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "scripts", "tsup.config.ts", "vitest.config.ts"]
+  "include": ["src", "test", "eval", "scripts", "tsup.config.ts", "vitest.config.ts"]
 }

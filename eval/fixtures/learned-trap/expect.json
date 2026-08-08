@@ -1,0 +1,11 @@
+{
+  "description": "The e2e suite fails twice with a misleading error, then passes once the compose stack is up. The recovery signal names a repo prerequisite nothing in the code states. Right answer: exactly one project fact naming the prerequisite — not a narration of the debugging.",
+  "expect": {
+    "emptyPatch": false,
+    "minAdds": 1,
+    "maxAdds": 2,
+    "shouldMentionAny": ["docker", "compose"],
+    "mustNotContain": ["TypeScript", "checkout.spec.ts", "flaky"],
+    "noSecrets": true
+  }
+}

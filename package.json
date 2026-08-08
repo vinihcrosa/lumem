@@ -45,6 +45,7 @@
     "verify": "npm run check && vitest run --passWithNoTests && npm run build",
     "verify:pack": "sh scripts/verify-pack.sh",
     "bench:hook": "node scripts/bench-hook.mjs",
+    "eval": "vite-node eval/cli.ts --",
     "prepack": "npm run build",
     "prepublishOnly": "npm run verify"
   },

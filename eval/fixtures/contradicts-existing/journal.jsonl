@@ -1,0 +1,9 @@
+{"t":"session","ts":"2026-08-06T16:05:00Z","ev":"start","harness":"claude-code","sessionId":"c4d8e1","cwd":"/repo"}
+{"t":"file","ts":"2026-08-06T16:06:12Z","path":"src/api/auth.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-06T16:07:44Z","path":"docs/adr/0007-auth.md","tool":"Read"}
+{"t":"correction","ts":"2026-08-06T16:12:31Z","marker":"we decided","prompt":"we decided in the review: session cookies, not JWT. revocation has to take effect on the next request and we are not running a token blocklist just to fake that. treat the JWT branch as dead"}
+{"t":"file","ts":"2026-08-06T16:18:09Z","path":"src/api/session.ts","tool":"Write"}
+{"t":"file","ts":"2026-08-06T16:22:37Z","path":"src/api/auth.ts","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-06T16:24:55Z","cmd":"npx vitest run src/api","exit":0}
+{"t":"file","ts":"2026-08-06T16:28:03Z","path":"docs/adr/0007-auth.md","tool":"Edit"}
+{"t":"session","ts":"2026-08-06T16:29:40Z","ev":"end","harness":"claude-code","sessionId":"c4d8e1","cwd":"/repo"}

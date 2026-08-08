@@ -1,0 +1,8 @@
+{
+  "description": "Nothing here survives anti-junk rule 1, so nothing is written.",
+  "responses": [
+    { "version": 1, "add": [], "replace": [], "remove": [] },
+    "{\"version\":1,\"add\":[],\"replace\":[],\"remove\":[]}",
+    { "version": 1, "add": [], "replace": [], "remove": [] }
+  ]
+}

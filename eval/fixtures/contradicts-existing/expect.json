@@ -1,0 +1,12 @@
+{
+  "description": "Memory already says auth is undecided. This session settles it. Stacking a second fact leaves two contradictory lines and the next agent trusts neither — the right answer is a replace of 3808e284, not an add.",
+  "expect": {
+    "emptyPatch": false,
+    "mustReplaceId": "3808e284",
+    "minAdds": 0,
+    "maxAdds": 1,
+    "shouldMentionAny": ["cookie", "revocation", "revoke"],
+    "mustNotContain": ["undecided", "on the table"],
+    "noSecrets": true
+  }
+}

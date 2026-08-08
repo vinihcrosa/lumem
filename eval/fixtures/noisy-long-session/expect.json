@@ -1,0 +1,11 @@
+{
+  "description": "80 minutes on a billing refactor: 66 signals, mostly file churn and green commands. Exactly two of them are durable — a recovery (playwright browsers are not installed by the repo setup) and a correction (no lockfile bumps in a feature commit). Volume must not produce volume: three adds is already too many.",
+  "expect": {
+    "emptyPatch": false,
+    "minAdds": 1,
+    "maxAdds": 3,
+    "shouldMentionAny": ["playwright", "lockfile", "package-lock"],
+    "mustNotContain": ["billing refactor", "invoice.ts", "TypeScript"],
+    "noSecrets": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "description": "One fact carrying the decision and the reason behind it. The variants differ in wording and in whether the correction is filed as project or correction — both are defensible, which is exactly the kind of spread the variance metric should tolerate.",
+  "responses": [
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "project",
+          "scope": "project",
+          "body": "Auth uses server-side sessions, not JWT: revocation has to take effect on the very next request, and a stateless token can only fake that with a blocklist the team would have to operate anyway.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "correction",
+          "scope": "project",
+          "body": "Told not to reach for JWT in this API: immediate revocation is a hard requirement here, so session state on the server is the deliberate choice.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    "Here is the patch:\n\n```json\n{\"version\":1,\"add\":[{\"type\":\"project\",\"scope\":\"project\",\"body\":\"Auth deliberately avoids JWT: revocation must be immediate, and a stateless token cannot do that without a blocklist.\",\"conf\":\"high\"}],\"replace\":[],\"remove\":[]}\n```\n"
+  ]
+}

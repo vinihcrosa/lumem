@@ -1,0 +1,11 @@
+{
+  "description": "The user rejects JWT mid-session and says why: revocation has to take effect immediately. The reason is the durable part — without it the next agent proposes JWT again. Right answer: one fact carrying the decision AND its reason.",
+  "expect": {
+    "emptyPatch": false,
+    "minAdds": 1,
+    "maxAdds": 2,
+    "shouldMentionAny": ["revocation", "revoke", "immediate"],
+    "mustNotContain": ["vitest", "TypeScript", "auth.test.ts"],
+    "noSecrets": true
+  }
+}

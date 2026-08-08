@@ -18,6 +18,15 @@
     "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" }
   },
   "files": {
-    "ignore": ["dist/**", "node_modules/**", ".lumem/**", "coverage/**", ".agents/**", ".claude/**"]
+    "ignore": [
+      "dist/**",
+      "node_modules/**",
+      ".lumem/**",
+      "coverage/**",
+      ".agents/**",
+      ".claude/**",
+      ".codex/**",
+      "eval/results/**"
+    ]
   }
 }

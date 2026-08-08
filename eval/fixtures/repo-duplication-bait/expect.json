@@ -1,0 +1,9 @@
+{
+  "description": "A build-config session: package.json, tsup.config.ts, tsconfig.json, two green builds. Everything learnable here is one `cat` away, so anti-junk rule 1 applies to all of it. Right answer: the empty patch.",
+  "expect": {
+    "emptyPatch": true,
+    "maxAdds": 0,
+    "mustNotContain": ["tsup", "TypeScript", "esbuild", "bundle", "npm run build"],
+    "noSecrets": true
+  }
+}

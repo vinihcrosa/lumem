@@ -1,0 +1,68 @@
+{"t":"session","ts":"2026-08-04T09:00:40Z","ev":"start","harness":"claude-code","sessionId":"9d1c7e","cwd":"/repo"}
+{"t":"file","ts":"2026-08-04T09:02:15Z","path":"src/billing/invoice.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:03:17Z","path":"src/billing/invoice.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:04:08Z","path":"src/billing/tax.ts","tool":"Write"}
+{"t":"cmd","ts":"2026-08-04T09:05:21Z","cmd":"npx vitest run src/billing","exit":0}
+{"t":"file","ts":"2026-08-04T09:07:07Z","path":"src/billing/tax.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:07:47Z","path":"src/billing/index.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:09:22Z","path":"src/billing/types.ts","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T09:10:24Z","cmd":"npx vitest run src/billing","exit":1}
+{"t":"file","ts":"2026-08-04T09:11:15Z","path":"src/billing/currency.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:12:28Z","path":"src/billing/currency.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:14:14Z","path":"src/db/schema.prisma","tool":"Write"}
+{"t":"cmd","ts":"2026-08-04T09:14:54Z","cmd":"npx vitest run src/billing","exit":0}
+{"t":"file","ts":"2026-08-04T09:16:29Z","path":"src/db/client.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:17:31Z","path":"src/api/routes/invoices.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:18:22Z","path":"src/api/routes/invoices.test.ts","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T09:19:35Z","cmd":"npm run check","exit":1}
+{"t":"file","ts":"2026-08-04T09:21:21Z","path":"src/api/middleware/tenant.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:22:01Z","path":"src/ui/InvoiceTable.tsx","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:23:36Z","path":"src/ui/InvoiceRow.tsx","tool":"Write"}
+{"t":"cmd","ts":"2026-08-04T09:24:38Z","cmd":"npm run check","exit":0}
+{"t":"file","ts":"2026-08-04T09:25:29Z","path":"src/ui/useInvoices.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:26:42Z","path":"docs/billing.md","tool":"Read"}
+{"t":"cmd","ts":"2026-08-04T09:28:28Z","cmd":"npx playwright test","exit":1}
+{"t":"file","ts":"2026-08-04T09:29:08Z","path":"playwright.config.ts","tool":"Read"}
+{"t":"cmd","ts":"2026-08-04T09:30:43Z","cmd":"npx playwright test --project=chromium","exit":1}
+{"t":"recovery","ts":"2026-08-04T09:31:45Z","failed":"npx playwright test","passed":"npx playwright install chromium && npx playwright test"}
+{"t":"cmd","ts":"2026-08-04T09:32:36Z","cmd":"npx playwright install chromium && npx playwright test","exit":0}
+{"t":"file","ts":"2026-08-04T09:33:49Z","path":"test/e2e/invoice.spec.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:35:35Z","path":"src/billing/rounding.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:36:15Z","path":"src/billing/rounding.test.ts","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T09:37:50Z","cmd":"npx vitest run src/api","exit":0}
+{"t":"file","ts":"2026-08-04T09:38:52Z","path":"src/billing/invoice.ts","tool":"Write"}
+{"t":"file","ts":"2026-08-04T09:39:43Z","path":"src/billing/invoice.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:40:56Z","path":"src/billing/tax.ts","tool":"Read"}
+{"t":"cmd","ts":"2026-08-04T09:42:42Z","cmd":"git status --short","exit":0}
+{"t":"file","ts":"2026-08-04T09:43:22Z","path":"src/billing/tax.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:44:57Z","path":"src/billing/index.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T09:45:59Z","path":"src/billing/types.ts","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T09:46:50Z","cmd":"npx vitest run src/billing","exit":0}
+{"t":"file","ts":"2026-08-04T09:48:03Z","path":"src/billing/currency.ts","tool":"Write"}
+{"t":"file","ts":"2026-08-04T09:49:49Z","path":"src/billing/currency.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:50:29Z","path":"src/db/schema.prisma","tool":"Read"}
+{"t":"cmd","ts":"2026-08-04T09:52:04Z","cmd":"npx vitest run src/billing","exit":1}
+{"t":"file","ts":"2026-08-04T09:53:06Z","path":"src/db/client.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T09:53:57Z","path":"src/api/routes/invoices.ts","tool":"Read"}
+{"t":"correction","ts":"2026-08-04T09:55:10Z","marker":"never","prompt":"never bump package-lock.json in the same commit as a feature. nobody reviews a 4000-line lockfile diff, and when we revert the feature the lockfile goes with it and staging breaks for everyone else"}
+{"t":"file","ts":"2026-08-04T09:56:56Z","path":"package-lock.json","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T09:57:36Z","cmd":"git checkout -- package-lock.json","exit":0}
+{"t":"file","ts":"2026-08-04T09:59:11Z","path":"src/api/routes/invoices.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T10:00:13Z","path":"src/api/middleware/tenant.ts","tool":"Write"}
+{"t":"file","ts":"2026-08-04T10:01:04Z","path":"src/ui/InvoiceTable.tsx","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T10:02:17Z","cmd":"npx vitest run src/billing","exit":0}
+{"t":"file","ts":"2026-08-04T10:04:03Z","path":"src/ui/InvoiceRow.tsx","tool":"Read"}
+{"t":"file","ts":"2026-08-04T10:04:43Z","path":"src/ui/useInvoices.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T10:06:18Z","path":"docs/billing.md","tool":"Read"}
+{"t":"cmd","ts":"2026-08-04T10:07:20Z","cmd":"npm run check","exit":1}
+{"t":"file","ts":"2026-08-04T10:08:11Z","path":"test/e2e/invoice.spec.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T10:09:24Z","path":"src/billing/rounding.ts","tool":"Write"}
+{"t":"file","ts":"2026-08-04T10:11:10Z","path":"src/billing/rounding.test.ts","tool":"Edit"}
+{"t":"cmd","ts":"2026-08-04T10:11:50Z","cmd":"npm run check","exit":0}
+{"t":"file","ts":"2026-08-04T10:13:25Z","path":"src/billing/invoice.ts","tool":"Read"}
+{"t":"file","ts":"2026-08-04T10:14:27Z","path":"src/billing/invoice.test.ts","tool":"Edit"}
+{"t":"file","ts":"2026-08-04T10:15:18Z","path":"src/billing/tax.ts","tool":"Read"}
+{"t":"cmd","ts":"2026-08-04T10:16:31Z","cmd":"npx vitest run src/api","exit":0}
+{"t":"cmd","ts":"2026-08-04T10:18:17Z","cmd":"npm run check","exit":0}
+{"t":"cmd","ts":"2026-08-04T10:18:57Z","cmd":"npx vitest run","exit":0}
+{"t":"session","ts":"2026-08-04T10:20:32Z","ev":"end","harness":"claude-code","sessionId":"9d1c7e","cwd":"/repo"}

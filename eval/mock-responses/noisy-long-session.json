@@ -1,0 +1,56 @@
+{
+  "description": "Two facts out of 66 signals. The third variant writes only one of the two, which is a defensible under-write and keeps the add spread honest.",
+  "responses": [
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "project",
+          "scope": "project",
+          "body": "Playwright browsers are not installed by the repo setup: `npx playwright test` fails on a clean machine until `npx playwright install chromium` has run once.",
+          "conf": "high"
+        },
+        {
+          "type": "correction",
+          "scope": "project",
+          "body": "Told never to bump the lockfile in the same commit as a feature: nobody reviews a 4000-line diff, and reverting the feature drags the lockfile back with it and breaks staging for everyone.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "project",
+          "scope": "project",
+          "body": "A clean checkout has no Playwright browsers; run `npx playwright install chromium` before the browser suite or it fails with an error that looks like a broken test.",
+          "conf": "high"
+        },
+        {
+          "type": "correction",
+          "scope": "project",
+          "body": "Lockfile changes go in their own commit, never alongside a feature — a revert of the feature otherwise takes the lockfile with it.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "correction",
+          "scope": "project",
+          "body": "Told to keep package-lock changes out of feature commits: the diff is unreviewable and a revert drags the lockfile along.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    }
+  ]
+}

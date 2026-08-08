@@ -1,0 +1,12 @@
+{
+  "description": "A durable statement about how this developer wants to be worked with, anywhere — not about this repo. Right answer: one preference/global fact. Filing it as project/project would bury it in the wrong file and lose it on the next repo.",
+  "expect": {
+    "emptyPatch": false,
+    "minAdds": 1,
+    "maxAdds": 2,
+    "mustAddTypeScope": ["preference/global"],
+    "shouldMentionAny": ["diff", "patch"],
+    "mustNotContain": ["status.ts", "doctor.ts", "vitest"],
+    "noSecrets": true
+  }
+}

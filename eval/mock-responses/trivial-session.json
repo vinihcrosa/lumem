@@ -1,0 +1,8 @@
+{
+  "description": "What a well-calibrated model returns here: nothing. The third variant is the same verdict wrapped in a fence, which is what a chattier model produces.",
+  "responses": [
+    { "version": 1, "add": [], "replace": [], "remove": [] },
+    { "version": 1, "add": [], "replace": [], "remove": [] },
+    "```json\n{\"version\":1,\"add\":[],\"replace\":[],\"remove\":[]}\n```\n"
+  ]
+}

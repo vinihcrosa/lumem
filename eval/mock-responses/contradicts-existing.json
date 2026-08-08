@@ -1,0 +1,30 @@
+{
+  "description": "The settled decision replaces the stale one in place. No add: a second auth fact next to the first is the failure this fixture exists to catch.",
+  "responses": [
+    {
+      "version": 1,
+      "add": [],
+      "replace": [
+        {
+          "targetId": "3808e284",
+          "body": "Auth uses session cookies, not JWT: revocation has to take effect on the next request and the team will not run a token blocklist to emulate that. The JWT branch is dead.",
+          "conf": "high"
+        }
+      ],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [],
+      "replace": [
+        {
+          "targetId": "3808e284",
+          "body": "Auth is settled: session cookies. Immediate revocation was the deciding requirement.",
+          "conf": "high"
+        }
+      ],
+      "remove": []
+    },
+    "```json\n{\"version\":1,\"add\":[],\"replace\":[{\"targetId\":\"3808e284\",\"body\":\"Session cookies won over JWT because revocation must take effect on the next request.\",\"conf\":\"high\"}],\"remove\":[]}\n```"
+  ]
+}

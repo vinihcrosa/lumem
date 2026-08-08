@@ -1,0 +1,44 @@
+{
+  "description": "The recovery signal turned into exactly one project fact naming the prerequisite, with the misleading symptom attached so the next agent recognises it.",
+  "responses": [
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "project",
+          "scope": "project",
+          "body": "`npm run test:e2e` needs `docker compose up -d` to have run first; the suite starts no containers of its own and the failure it produces points at the test, not at the missing stack.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "project",
+          "scope": "project",
+          "body": "The e2e suite assumes the compose stack is already up: run `docker compose up -d` before `npm run test:e2e` or it fails with an error that reads like a broken spec.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    },
+    {
+      "version": 1,
+      "add": [
+        {
+          "type": "project",
+          "scope": "project",
+          "body": "Prerequisite for `npm run test:e2e`: `docker compose up -d`. Nothing in the repo states it and the resulting failure is misleading.",
+          "conf": "high"
+        }
+      ],
+      "replace": [],
+      "remove": []
+    }
+  ]
+}

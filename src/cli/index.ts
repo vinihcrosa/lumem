@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { type CliContext, resolveAdaptersDir } from './context'
 import { renderDoctor, runDoctor } from './doctor'
+import { registerMemoryContextCommand } from './memory-context'
+import { registerMemoryReadCommands } from './memory-read'
+import { registerMemoryWriteCommands } from './memory-write'
 import { renderStatus, runStatus } from './status'
 
 const pkg = JSON.parse(
@@ -49,6 +52,11 @@ program
     emit(ctx.json, report, renderStatus(report))
     process.exitCode = exitCode
   })
+
+const memory = program.command('memory').description('Read and write durable memory')
+registerMemoryReadCommands(memory, buildContext, emit)
+registerMemoryWriteCommands(memory, buildContext, emit)
+registerMemoryContextCommand(memory, buildContext)
 
 program.parseAsync().catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err))

@@ -115,3 +115,35 @@ git push --follow-tags
 3. The workflow references an `npm` environment. GitHub creates it on first use; add required reviewers there if a publish should need approval.
 
 The eval harness is deliberately **not** in CI: it spends tokens and needs the network, which every other job is built to avoid.
+
+## First live consolidation (2026-08-08)
+
+Ran `memory consolidate --force --dry-run` against a real 265-signal journal from an actual working session — the first time consolidation has ever seen real session data rather than hand-written fixtures.
+
+**Result: an empty patch.** Three findings, in order of how much they matter.
+
+### 1. The empty patch is correct — and that is the good news
+
+Journal composition: 161 `cmd`, 103 `file`, 3 `correction`, **0 `recovery`**. There is genuinely nothing durable in a stream of commands and file reads, and the three corrections were not corrections (see finding 3). Writing nothing was the right answer.
+
+Calibration is the hardest thing to get right in this prompt and the dominant failure mode is writing something to look useful. The `trivial-session` eval fixture predicted exactly this behaviour and it held on real data. That is the single most encouraging signal so far.
+
+### 2. `recovery` is structurally dead — the richest signal can never fire
+
+All 161 captured commands carry `exit=0`. That session had a failing packaging test, two failed release workflows, npm errors and several red `npm run check` runs. None reached the journal.
+
+**Cause:** lumem subscribes to `PostToolUse` only. Claude Code routes failed tool calls to a separate `PostToolUseFailure` event, which nothing listens to. So only successful calls are ever seen, `exitCodeOf` always falls through to its `0` default, and `detectRecovery` — which needs a failure followed by a success — can never trigger.
+
+This is the "learned trap" the consolidation prompt calls *"the richest signal there is"*. It has never worked in production and no test caught it, because every test feeds the handler a payload with the exit code already in it.
+
+**Fix shape:** add `PostToolUseFailure` to the descriptor's `eventMap` and the hook template, map it to a `capture-tool-failure` event, and have `exitCodeOf` treat the failure event as non-zero when no explicit code is present. Needs the real payload shape confirmed first — the published docs do not specify how the failure carries its status.
+
+### 3. The correction heuristic captured system notifications as user prompts
+
+Two of the three `correction` signals are `<task-notification>` blocks — harness-injected background-agent notifications, not user input. They matched the heuristic because their text happens to contain marker words.
+
+Consolidation ignored them, but by luck rather than design: they are noise in the journal and noise in the prompt. `UserPromptSubmit` payloads that are system-injected need to be recognised and skipped.
+
+### What this does not yet tell us
+
+Whether consolidation produces *useful* facts. This journal had nothing durable to find, so it tested calibration and not extraction. That answer needs a session with a real correction or a real recovery in it — which finding 2 currently makes impossible.

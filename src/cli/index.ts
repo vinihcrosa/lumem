@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
+import { registerAdrLintCommand } from './adr-lint'
+import { registerAdrCommands } from './adr-new'
 import { type CliContext, resolveAdaptersDir } from './context'
 import { renderDoctor, runDoctor } from './doctor'
 import { registerInitCommand } from './init'
@@ -60,6 +62,11 @@ program
   })
 
 registerInitCommand(program, buildContext, emit)
+
+// Both take the root program and share an idempotent `adr` parent, so the
+// registration order cannot produce two of it.
+registerAdrCommands(program, buildContext, emit)
+registerAdrLintCommand(program, buildContext, emit)
 registerInstallCommand(program, buildContext, emit)
 registerSyncCommand(program, buildContext, emit)
 registerUninstallCommand(program, buildContext, emit)

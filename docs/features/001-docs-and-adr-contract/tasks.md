@@ -1,5 +1,7 @@
 # Tasks — 001 Docs and ADR contract
 
+**Status: done.** All eight tasks landed; T8 smoke run below.
+
 **TDD:** [tdd.md](tdd.md) · **Decisions:** [decisions.md](decisions.md)
 
 Each task is self-contained: what to build, the signatures, the tests, and the acceptance criteria from the TDD it discharges. Written to be implementable without re-reading the whole discussion.
@@ -301,3 +303,51 @@ lumem memory context           # expect the docs line
 ## Deliberately not here
 
 Everything in TDD §6. If a task starts growing toward `lumem docs index`, drafts, or the other lint checks, that is scope leaking back in — the triggers to revisit are written down and none of them has fired.
+
+
+---
+
+## T8 — smoke result (2026-08-10)
+
+Run against the built binary in a throwaway project. Every acceptance criterion
+from the TDD exercised the way a user would meet it.
+
+```
+$ lumem adr new "Session cookies over JWT" --area auth --summary "..."
+✔ created …/docs/adr/2026-08-10-session-cookies-over-jwt.md      # no .lumem needed
+
+$ lumem adr new "JWT for service tokens" --area auth --supersedes <first>
+✔ created …/docs/adr/2026-08-10-jwt-for-service-tokens.md
+
+$ lumem adr lint
+no findings — 2 ADRs checked                                      # exit 0
+
+# supersedes hand-edited to a file that does not exist
+$ lumem adr lint
+gate broken-supersedes:
+  2026-08-10-jwt-for-service-tokens.md: supersedes '2026-01-01-ghost.md',
+  which is not an ADR under docs/adr/; the chain stops here
+1 finding (1 gate, 0 info) — 2 ADRs checked                       # exit 3
+
+$ lumem memory context                                            # with ADRs present
+# lumem memory
+## project
+- [2026-08-10] The e2e suite needs docker compose up first
+## docs
+Architectural decisions live in docs/adr/, newest last. Before proposing or
+changing architecture, list that folder and read the frontmatter of anything
+that looks relevant.
+
+# AC17 — a project with no docs/
+$ lumem memory context   → the block ends at the facts, no docs section
+$ lumem adr lint         → no findings — 0 ADRs checked, exit 0
+```
+
+`npm run verify`: 1368 tests across 53 files, green. Hook latency unchanged —
+`inject` p95 29.8 ms against the 150 ms ceiling.
+
+**What is now waiting on real use:** the success criterion in `tdd.md` §5 —
+*does the agent read an ADR it was merely pointed at, before proposing something
+the ADR already settled?* Nothing in the suite can answer that. It needs weeks
+of sessions, and its answer decides whether the deferred list in §6 gets built
+as designed or redesigned.

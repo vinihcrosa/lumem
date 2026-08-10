@@ -230,7 +230,12 @@ function inject(input: HookInput, deps: HandlerDeps): string {
   }
 
   const files = memoryLayout(ctx.lumemDir, globalLumemDir(deps)).map(readMemorySafe)
-  return buildInjection(files, injectionBudget(ctx.lumemDir)).text
+  // `docsDir` is the repository's own `docs/`, not `.lumem/`: ADRs are project
+  // documents. `buildInjection` only checks whether `docs/adr/` holds an ADR —
+  // it never reads one — so this costs the session start a single readdir.
+  return buildInjection(files, injectionBudget(ctx.lumemDir), {
+    docsDir: path.join(ctx.projectDir, 'docs'),
+  }).text
 }
 
 /**

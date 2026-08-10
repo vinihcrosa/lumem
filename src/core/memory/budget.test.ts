@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildInjection } from './budget'
 import type { Fact, MemoryFile, MemoryScope, MemoryType } from './store'
@@ -8,6 +11,30 @@ const DOC = '# lumem memory\n'
 const CORRECTIONS = '## corrections\n'
 const PROJECT = '## project\n'
 const PREFERENCES = '## preferences\n'
+
+/** The docs pointer, spelled out here so a reworded section fails loudly. */
+const DOCS =
+  '## docs\n' +
+  'Architectural decisions live in docs/adr/, newest last. Before proposing or\n' +
+  'changing architecture, list that folder and read the frontmatter of anything\n' +
+  'that looks relevant.\n'
+
+function tmpDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-budget-'))
+}
+
+/**
+ * A `<tmp>/docs` path for the given layout, returned whether or not it exists:
+ * `undefined` leaves `docs/` itself missing, `[]` creates an empty `docs/adr/`.
+ */
+function docsDirWith(adrEntries?: string[]): string {
+  const docsDir = path.join(tmpDir(), 'docs')
+  if (adrEntries === undefined) return docsDir
+  const adrDir = path.join(docsDir, 'adr')
+  fs.mkdirSync(adrDir, { recursive: true })
+  for (const name of adrEntries) fs.writeFileSync(path.join(adrDir, name), '# adr\n')
+  return docsDir
+}
 
 function mk(
   id: string,
@@ -260,6 +287,8 @@ describe('buildInjection — hard budget', () => {
 
   it('holds the byte invariant over random fact sets and budgets (property)', () => {
     const budgets = [0, 1, 64, 256, 4096]
+    // One real ADR on disk, so every iteration also exercises the docs section.
+    const docsDir = docsDirWith(['2026-08-08-a.md'])
 
     for (let seed = 0; seed < 40; seed++) {
       const rand = mulberry32(seed)
@@ -306,7 +335,155 @@ describe('buildInjection — hard budget', () => {
         const headers = lines.filter((l) => l.startsWith('## '))
         const order = ['## corrections', '## project', '## preferences']
         expect(headers, label).toEqual(order.filter((h) => headers.includes(h)))
+
+        // (h) The docs section rides the SAME budget and is appended last: the
+        // ceiling still holds, the fact selection is untouched, and the section
+        // is either whole or absent.
+        const withDocs = buildInjection(files, budget, { docsDir })
+        expect(bytes(withDocs.text), label).toBeLessThanOrEqual(budget)
+        expect(withDocs.includedFactIds, label).toEqual(res.includedFactIds)
+        expect(withDocs.truncated, label).toBe(res.truncated)
+        const opened = res.text === '' ? DOC : res.text
+        expect(
+          withDocs.text === res.text || withDocs.text === `${opened}${DOCS}`,
+          `${label} docs=${JSON.stringify(withDocs.text)}`,
+        ).toBe(true)
       }
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Contract 3b: the docs section (TDD 001 §3)
+// ---------------------------------------------------------------------------
+
+describe('buildInjection — the docs section', () => {
+  const files = [
+    mkFile([
+      mk('c1', '2026-01-02', 'corr one', 'correction'),
+      mk('p1', '2026-01-01', 'proj one', 'project'),
+      mk('r1', '2026-01-01', 'pref one', 'preference', 'global'),
+    ]),
+  ]
+  const factsBlock =
+    `${DOC}${CORRECTIONS}- [2026-01-02] corr one\n` +
+    `${PROJECT}- [2026-01-01] proj one\n` +
+    `${PREFERENCES}- [2026-01-01] pref one\n`
+
+  it('appends the docs section when docs/adr holds at least one .md', () => {
+    const docsDir = docsDirWith(['2026-08-08-session-cookies-over-jwt.md'])
+
+    const res = buildInjection(files, 4096, { docsDir })
+
+    expect(res.text).toBe(`${factsBlock}${DOCS}`)
+    expect(res.text).toContain('Architectural decisions live in docs/adr/, newest last.')
+    expect(res.includedFactIds).toEqual(['c1', 'p1', 'r1'])
+    expect(res.truncated).toBe(false)
+  })
+
+  it('appends it last, after every fact section', () => {
+    const docsDir = docsDirWith(['a.md'])
+
+    const text = buildInjection(files, 4096, { docsDir }).text
+
+    expect(text.indexOf('## docs')).toBeGreaterThan(text.indexOf('## preferences'))
+    expect(text.endsWith(DOCS)).toBe(true)
+  })
+
+  it('opens the document header for the docs section when there is no fact at all', () => {
+    const docsDir = docsDirWith(['a.md'])
+
+    expect(buildInjection([], 4096, { docsDir }).text).toBe(`${DOC}${DOCS}`)
+    expect(buildInjection([mkFile([])], 4096, { docsDir }).text).toBe(`${DOC}${DOCS}`)
+  })
+
+  it('sees an ADR among files it must ignore', () => {
+    const docsDir = docsDirWith(['README.txt', 'notes.md.bak', 'diagram.png', 'a.md'])
+
+    expect(buildInjection(files, 4096, { docsDir }).text).toBe(`${factsBlock}${DOCS}`)
+  })
+
+  it('is byte-identical to a no-docsDir call when there is no ADR to point at', () => {
+    const baseline = buildInjection(files, 4096)
+    const layouts = [
+      docsDirWith(undefined), // docs/ itself missing
+      docsDirWith([]), // docs/adr/ present but empty
+      docsDirWith(['README.txt', 'notes.md.bak', 'diagram.png']), // no *.md
+    ]
+
+    // docs/ present, docs/adr/ missing.
+    const noAdrDir = path.join(tmpDir(), 'docs')
+    fs.mkdirSync(noAdrDir, { recursive: true })
+    layouts.push(noAdrDir)
+
+    for (const docsDir of layouts) {
+      expect(buildInjection(files, 4096, { docsDir }), docsDir).toEqual(baseline)
+    }
+    // An opts object carrying no docsDir is the same call again.
+    expect(buildInjection(files, 4096, {})).toEqual(baseline)
+    expect(buildInjection(files, 4096, undefined)).toEqual(baseline)
+  })
+
+  it('drops the docs section before dropping any fact', () => {
+    const docsDir = docsDirWith(['a.md'])
+    const everything = `${factsBlock}${DOCS}`
+
+    // Exactly the total: both the facts and the section fit.
+    expect(buildInjection(files, bytes(everything), { docsDir }).text).toBe(everything)
+
+    // One byte short, and again with room for the facts alone: every fact survives.
+    for (const budget of [bytes(everything) - 1, bytes(factsBlock)]) {
+      const res = buildInjection(files, budget, { docsDir })
+      expect(res.text, `budget=${budget}`).toBe(factsBlock)
+      expect(res.includedFactIds, `budget=${budget}`).toEqual(['c1', 'p1', 'r1'])
+      // `truncated` means a FACT was left out; a dropped docs section is not one.
+      expect(res.truncated, `budget=${budget}`).toBe(false)
+    }
+  })
+
+  it('never partially renders the section', () => {
+    const docsDir = docsDirWith(['a.md'])
+
+    for (let budget = 0; budget <= bytes(`${factsBlock}${DOCS}`) + 8; budget++) {
+      const text = buildInjection(files, budget, { docsDir }).text
+      expect(bytes(text), `budget=${budget}`).toBeLessThanOrEqual(budget)
+      expect(text.includes('## docs'), `budget=${budget}`).toBe(text.includes(DOCS))
+    }
+  })
+
+  it('does not throw when docs/adr is a file rather than a directory', () => {
+    const docsDir = path.join(tmpDir(), 'docs')
+    fs.mkdirSync(docsDir, { recursive: true })
+    fs.writeFileSync(path.join(docsDir, 'adr'), 'i am a file, not a directory\n')
+
+    expect(() => buildInjection(files, 4096, { docsDir })).not.toThrow()
+    expect(buildInjection(files, 4096, { docsDir })).toEqual(buildInjection(files, 4096))
+  })
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'does not throw when docs/ is unreadable',
+    () => {
+      const docsDir = docsDirWith(['a.md'])
+      fs.chmodSync(docsDir, 0o000)
+      try {
+        expect(() => buildInjection(files, 4096, { docsDir })).not.toThrow()
+        expect(buildInjection(files, 4096, { docsDir })).toEqual(buildInjection(files, 4096))
+      } finally {
+        fs.chmodSync(docsDir, 0o700)
+      }
+    },
+  )
+
+  it('never throws on a degenerate docsDir', () => {
+    for (const docsDir of [
+      '',
+      '   ',
+      '\0',
+      'relative/nowhere',
+      '/nope/nowhere',
+      'x'.repeat(4096),
+    ]) {
+      expect(() => buildInjection(files, 4096, { docsDir }), JSON.stringify(docsDir)).not.toThrow()
     }
   })
 })

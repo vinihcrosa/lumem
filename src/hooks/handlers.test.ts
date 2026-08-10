@@ -30,6 +30,13 @@ function writeMemory(base: string, name: string, content: string): void {
   fs.writeFileSync(file, content)
 }
 
+/** An ADR under `<projectDir>/docs/adr/`; only its existence matters to inject. */
+function writeAdr(projectDir: string, name = '2026-08-08-session-cookies-over-jwt.md'): void {
+  const file = path.join(projectDir, 'docs', 'adr', name)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, '---\ntitle: Session cookies over JWT\n---\n')
+}
+
 function writeConfig(projectDir: string, content: string): void {
   const file = path.join(projectDir, '.lumem', 'lumem.config.json')
   fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -286,6 +293,62 @@ describe('inject', () => {
     const projectDir = project()
     writeMemory(projectDir, 'project.md', 'lixo solto\n- [ontem] data quebrada\n')
     expect(fire(make(), 'inject', { cwd: projectDir })).toBe('')
+  })
+
+  it('appends the docs section when the project holds an ADR under docs/adr', () => {
+    const { projectDir, home } = populated()
+    writeAdr(projectDir)
+
+    const text = fire(make({ home }), 'inject', { cwd: projectDir, session_id: SESSION_ID })
+
+    expect(text).toContain('## docs')
+    expect(text).toContain('Architectural decisions live in docs/adr/, newest last.')
+    expect(text.indexOf('## docs')).toBeGreaterThan(text.indexOf('## preferences'))
+    expect(Buffer.byteLength(text, 'utf8')).toBeLessThanOrEqual(4096)
+  })
+
+  it('injects exactly what it did before when the project has no docs directory', () => {
+    const { projectDir, home } = populated()
+
+    const text = fire(make({ home }), 'inject', { cwd: projectDir })
+
+    expect(fs.existsSync(path.join(projectDir, 'docs'))).toBe(false)
+    expect(text).toBe(
+      `# lumem memory\n## corrections\n- [2026-08-06] ${CORRECTION_BODY}\n` +
+        `## project\n- [2026-08-07] ${PROJECT_BODY}\n` +
+        `## preferences\n- [2026-08-04] ${PREFERENCE_BODY}\n`,
+    )
+  })
+
+  it('says nothing about docs when docs/adr exists but holds no ADR', () => {
+    const { projectDir, home } = populated()
+    fs.mkdirSync(path.join(projectDir, 'docs', 'adr'), { recursive: true })
+    fs.writeFileSync(path.join(projectDir, 'docs', 'adr', 'README.txt'), 'not an adr\n')
+
+    const text = fire(make({ home }), 'inject', { cwd: projectDir })
+
+    expect(text).not.toContain('## docs')
+    expect(text).toContain(`- [2026-08-07] ${PROJECT_BODY}`)
+  })
+
+  it('reads docs/ from the resolved project dir, not from the payload cwd', () => {
+    const { projectDir, home } = populated()
+    const decoy = project()
+    writeAdr(decoy)
+    const h = make({ env: { HOME: home, CLAUDE_PROJECT_DIR: projectDir } })
+
+    // The ADRs live in the decoy, which is NOT the resolved project dir.
+    expect(fire(h, 'inject', { cwd: decoy })).not.toContain('## docs')
+
+    writeAdr(projectDir)
+    expect(fire(h, 'inject', { cwd: decoy })).toContain('## docs')
+  })
+
+  it('stays empty when the project has an ADR but no .lumem', () => {
+    const projectDir = tmpDir()
+    writeAdr(projectDir)
+
+    expect(fire(make(), 'inject', { cwd: projectDir, session_id: SESSION_ID })).toBe('')
   })
 })
 

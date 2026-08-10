@@ -26,7 +26,10 @@ const SPAWN_TIMEOUT_MS = 20_000
 /** `EVENT_DEADLINES_MS.inject` — the largest budget any event may spend. */
 const LATENCY_CEILING_MS = 2_000
 
-const EVENTS = ['inject', 'capture-prompt', 'capture-tool', 'end'] as const
+// Every event the hook actually answers. `capture-tool-failure` belongs here
+// for the same reason it exists: it runs on the path where something already
+// went wrong, which is exactly when a hook must not make things worse.
+const EVENTS = ['inject', 'capture-prompt', 'capture-tool', 'capture-tool-failure', 'end'] as const
 
 /** A durable fact, so `inject` has something real to lose when things break. */
 const FACT = '- [2026-08-01] usa pnpm, nunca npm\n  <!-- src:sess_chaos conf:high -->\n'

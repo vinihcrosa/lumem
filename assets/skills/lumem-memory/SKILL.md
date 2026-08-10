@@ -23,6 +23,16 @@ lumem memory context
 
 It prints a budgeted block: corrections first, then project facts, then preferences. Treat it as established context about this repo — not as suggestions. If a fact contradicts what you were about to propose, the fact wins unless the user says otherwise.
 
+## Architectural decisions
+
+Memory holds what is true now. **Why it is that way lives in `docs/adr/`**, one file per decision, newest last.
+
+Before proposing or changing architecture, list that folder and read the frontmatter of anything that looks relevant. Each file states its decision in the `title` and `summary`, so you can tell in one line whether it matters to you without opening the body.
+
+A decision there outranks your instinct. If an ADR settled something and you are about to propose the opposite, say so explicitly and explain what changed — do not quietly contradict it.
+
+An ADR is never deleted. When one is superseded, a newer ADR names it in `supersedes:`, and the newest one in the chain is the position that holds today.
+
 Other reads:
 
 ```bash

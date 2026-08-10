@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type { Command } from 'commander'
 import { buildInjection } from '../core/memory/budget'
 import type { CliContext } from './context'
@@ -15,7 +16,12 @@ export function runMemoryContext(
   ctx: CliContext,
   opts?: { budgetBytes?: number },
 ): { text: string; exitCode: number } {
-  const { text } = buildInjection(loadAllMemory(ctx), opts?.budgetBytes ?? DEFAULT_BUDGET_BYTES)
+  // Same `docsDir` the inject hook passes. Without it this command would print
+  // a different block than the one the agent actually receives at session
+  // start — and this command is what skill-only mode runs instead of the hook.
+  const { text } = buildInjection(loadAllMemory(ctx), opts?.budgetBytes ?? DEFAULT_BUDGET_BYTES, {
+    docsDir: path.join(ctx.projectDir, 'docs'),
+  })
   return { text, exitCode: 0 }
 }
 

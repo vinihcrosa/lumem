@@ -166,3 +166,23 @@ describe('registerMemoryContextCommand', () => {
     expect(code).toBe(0)
   })
 })
+
+describe('memory context matches what the hook injects', () => {
+  it('includes the docs pointer when the project has ADRs', () => {
+    const ctx = makeCtx(tmpDir(), tmpDir())
+    fs.mkdirSync(path.join(ctx.projectDir, 'docs', 'adr'), { recursive: true })
+    fs.writeFileSync(
+      path.join(ctx.projectDir, 'docs', 'adr', '2026-08-08-cookie-sessions.md'),
+      '---\ntitle: Session cookies over JWT\n---\n',
+    )
+
+    // This command is what skill-only mode runs in place of the hook, so a
+    // block that differs from the injected one would mislead exactly the
+    // agents that cannot rely on hooks.
+    expect(runMemoryContext(ctx).text).toContain('docs/adr/')
+  })
+
+  it('omits it when the project has none', () => {
+    expect(runMemoryContext(makeCtx(tmpDir(), tmpDir())).text).not.toContain('docs/adr/')
+  })
+})

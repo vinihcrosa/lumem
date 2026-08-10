@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import * as heuristics from './heuristics'
-import { DEFAULT_CORRECTION_MARKERS, classifyPrompt, correctionSignal, redact } from './heuristics'
+import {
+  DEFAULT_CORRECTION_MARKERS,
+  SYSTEM_WRAPPER_TAGS,
+  classifyPrompt,
+  correctionSignal,
+  redact,
+  stripSystemBlocks,
+} from './heuristics'
 import type { Signal } from './journal'
 
 // Fake tokens for testing only — never real credentials.
@@ -276,9 +283,18 @@ describe('correctionSignal', () => {
 })
 
 describe('marks-only boundary (PRD): the module never writes durable memory', () => {
-  it('exports exactly the four pure helpers and nothing else', () => {
+  it('exports exactly the pure helpers and nothing else', () => {
+    // Grows only with read-only helpers. The point of pinning the exact set is
+    // that a write path cannot be added here without this test noticing.
     expect(Object.keys(heuristics).sort()).toEqual(
-      ['DEFAULT_CORRECTION_MARKERS', 'classifyPrompt', 'correctionSignal', 'redact'].sort(),
+      [
+        'DEFAULT_CORRECTION_MARKERS',
+        'SYSTEM_WRAPPER_TAGS',
+        'classifyPrompt',
+        'correctionSignal',
+        'redact',
+        'stripSystemBlocks',
+      ].sort(),
     )
   })
 
@@ -292,6 +308,66 @@ describe('marks-only boundary (PRD): the module never writes durable memory', ()
     expect(signal).not.toBeNull()
     for (const value of Object.values(signal ?? {})) {
       expect(typeof value).toBe('string')
+    }
+  })
+})
+
+describe('stripSystemBlocks — harness-injected content is not user input', () => {
+  // Verbatim shape from the real journal: three of four captured corrections
+  // were these, and they matched on words from the agent's own prose quoted
+  // inside them.
+  const TASK_NOTIFICATION =
+    '<task-notification> <task-id>ada2f56ddb1f8e218</task-id> ' +
+    '<result>The agent reported it will never guess a field name and always ' +
+    'verify. Actually it also fixed the parser.</result> </task-notification>'
+
+  it('drops a pure task-notification, so it produces no correction at all', () => {
+    expect(stripSystemBlocks(TASK_NOTIFICATION)).toBe('')
+    expect(correctionSignal(TASK_NOTIFICATION, '2026-08-08T00:00:00Z')).toBeNull()
+  })
+
+  it.each(SYSTEM_WRAPPER_TAGS)('strips <%s> blocks', (tag) => {
+    const text = `<${tag}>never do this, always do that</${tag}>`
+    expect(stripSystemBlocks(text)).toBe('')
+    expect(correctionSignal(text, '2026-08-08T00:00:00Z')).toBeNull()
+  })
+
+  it('strips an unclosed wrapper — harnesses do not always close them', () => {
+    expect(stripSystemBlocks('<system-reminder>never mind this')).toBe('')
+  })
+
+  it('strips the bare SYSTEM NOTIFICATION prefix', () => {
+    const text = '[SYSTEM NOTIFICATION - NOT USER INPUT] the agent said never'
+    expect(stripSystemBlocks(text)).not.toContain('SYSTEM NOTIFICATION')
+  })
+
+  it('keeps the human message when a reminder is appended to it', () => {
+    // The case that makes stripping the right call over discarding: a real
+    // correction arrives WITH injected content stuck to it.
+    const text = 'na verdade, nunca use ORM aqui\n<system-reminder>be nice</system-reminder>'
+    const signal = correctionSignal(text, '2026-08-08T00:00:00Z')
+    expect(signal?.t).toBe('correction')
+    const prompt = signal?.t === 'correction' ? signal.prompt : ''
+    expect(prompt).toContain('nunca use ORM')
+    expect(prompt).not.toContain('system-reminder')
+    expect(prompt).not.toContain('be nice')
+  })
+
+  it('leaves markup the user pasted alone — it is a real prompt', () => {
+    // Why the tag list is a whitelist and not "strip every tag".
+    const text = 'na verdade esse <div class="x">bloco</div> nunca deveria renderizar'
+    expect(stripSystemBlocks(text)).toBe(text)
+    const signal = correctionSignal(text, '2026-08-08T00:00:00Z')
+    expect(signal?.t === 'correction' ? signal.prompt : '').toContain('<div')
+  })
+
+  it('leaves an ordinary prompt untouched', () => {
+    expect(stripSystemBlocks('sempre roda o lint antes')).toBe('sempre roda o lint antes')
+  })
+
+  it('never throws on hostile input', () => {
+    for (const bad of ['', '<', '<task-notification', '</task-notification>', '<<>>']) {
+      expect(() => stripSystemBlocks(bad)).not.toThrow()
     }
   })
 })

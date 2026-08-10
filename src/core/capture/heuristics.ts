@@ -161,13 +161,65 @@ export function redact(text: string, maxLen: number = DEFAULT_MAX_LEN): string {
 }
 
 /**
+ * Blocks a harness injects into a `UserPromptSubmit` payload that the user did
+ * not type. Enumerated rather than "strip every tag", because a user pasting
+ * markup into a prompt is a real prompt and must survive.
+ *
+ * Measured on a real 265-signal journal: three of four captured corrections were
+ * `<task-notification>` blocks, and the markers that matched them — "never",
+ * "actually", "always" — came from the agent's own prose quoted inside. The
+ * heuristic was reading the agent back to itself and filing it as user input.
+ */
+export const SYSTEM_WRAPPER_TAGS: string[] = [
+  'task-notification',
+  'system-reminder',
+  'local-command-caveat',
+  'local-command-stdout',
+  'command-name',
+  'command-message',
+  'command-args',
+  'function_results',
+]
+
+/** Bare lines a harness prefixes to injected content, with no tag around them. */
+const SYSTEM_PREFIXES: RegExp[] = [/^\s*\[SYSTEM NOTIFICATION[^\]]*\]/i]
+
+function wrapperPattern(tag: string): RegExp {
+  // Paired form first, then a stray opener — harnesses do not always close.
+  return new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?(?:</${tag}>|$)`, 'gi')
+}
+
+/**
+ * Remove harness-injected blocks, leaving whatever the human actually typed.
+ *
+ * Stripping rather than discarding the whole prompt on sight: a genuine message
+ * often arrives with a `<system-reminder>` appended to it, and dropping the
+ * whole payload would lose the correction along with the noise.
+ */
+export function stripSystemBlocks(text: string, tags: string[] = SYSTEM_WRAPPER_TAGS): string {
+  if (typeof text !== 'string' || text.length === 0) return ''
+  let out = text
+  for (const tag of tags) {
+    if (typeof tag !== 'string' || tag.trim().length === 0) continue
+    out = out.replace(wrapperPattern(tag), ' ')
+  }
+  for (const prefix of SYSTEM_PREFIXES) out = out.replace(prefix, ' ')
+  return out.trim()
+}
+
+/**
  * Build a `correction` signal for a prompt that trips a marker, with the prompt
  * already redacted. Returns null when nothing matches. This is a marking
  * decision only: the caller appends it to the journal, and consolidation — not
  * this heuristic — decides whether it ever becomes a durable fact.
+ *
+ * Harness-injected blocks are removed first, so the marker has to appear in
+ * something the user actually wrote.
  */
 export function correctionSignal(text: string, ts: string, markers?: string[]): Signal | null {
-  const marker = classifyPrompt(text, markers)
+  const human = stripSystemBlocks(text)
+  if (human.length === 0) return null
+  const marker = classifyPrompt(human, markers)
   if (marker === null) return null
-  return { t: 'correction', ts, marker, prompt: redact(text) }
+  return { t: 'correction', ts, marker, prompt: redact(human) }
 }

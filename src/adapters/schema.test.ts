@@ -32,6 +32,7 @@ const validDescriptor = (): unknown => ({
     inject: 'SessionStart',
     capturePrompt: 'UserPromptSubmit',
     captureTool: 'PostToolUse',
+    captureToolFailure: 'PostToolUseFailure',
     end: 'SessionEnd',
   },
   injection: ['hook-stdout', 'context-doc-block'],
@@ -52,6 +53,22 @@ describe('adapterDescriptorSchema', () => {
     expect(parsed.detect).toHaveLength(3)
     expect(parsed.paths.contextDoc?.maxBytes).toBe(4096)
     expect(parsed.eventMap.inject).toBe('SessionStart')
+    expect(parsed.eventMap.captureToolFailure).toBe('PostToolUseFailure')
+  })
+
+  // Optional by design: a harness whose PostToolUse already covers both outcomes
+  // (Codex) has nothing to map here, and must still be a valid descriptor.
+  it('parses a descriptor whose eventMap omits captureToolFailure', () => {
+    const d = asRecord(validDescriptor())
+    d.eventMap = {
+      inject: 'SessionStart',
+      capturePrompt: 'UserPromptSubmit',
+      captureTool: 'PostToolUse',
+      end: 'SessionEnd',
+    }
+    const parsed = adapterDescriptorSchema.parse(d)
+    expect(parsed.eventMap.captureTool).toBe('PostToolUse')
+    expect(parsed.eventMap.captureToolFailure).toBeUndefined()
   })
 
   it('parses a minimal descriptor without optional fields', () => {

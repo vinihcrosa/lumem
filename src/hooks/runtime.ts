@@ -7,9 +7,20 @@
 // hook that breaks the session is worse than no memory at all.
 
 /** Events lumem understands, mapped from harness-native events by the hook config. */
-export type LumemEvent = 'inject' | 'capture-prompt' | 'capture-tool' | 'end'
+export type LumemEvent =
+  | 'inject'
+  | 'capture-prompt'
+  | 'capture-tool'
+  | 'capture-tool-failure'
+  | 'end'
 
-const LUMEM_EVENTS: readonly LumemEvent[] = ['inject', 'capture-prompt', 'capture-tool', 'end']
+const LUMEM_EVENTS: readonly LumemEvent[] = [
+  'inject',
+  'capture-prompt',
+  'capture-tool',
+  'capture-tool-failure',
+  'end',
+]
 
 /**
  * Per-event wall-clock budget (NFR-2). `inject` may read memory and render a
@@ -19,6 +30,7 @@ export const EVENT_DEADLINES_MS: Record<LumemEvent, number> = {
   inject: 2000,
   'capture-prompt': 100,
   'capture-tool': 100,
+  'capture-tool-failure': 100,
   end: 100,
 }
 

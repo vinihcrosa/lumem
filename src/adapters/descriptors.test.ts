@@ -48,4 +48,21 @@ describe('shipped descriptors', () => {
       expect(d.eventMap.end).toBeDefined()
     }
   })
+
+  // Asserted on purpose, not by accident. Claude Code's `PostToolUse` fires only
+  // after a tool call SUCCEEDS: a failed call goes to `PostToolUseFailure`, so
+  // lumem must subscribe to both or it never sees a failure at all. Codex has no
+  // failure variant among its 11 events, so its `PostToolUse` covers both
+  // outcomes and the key must stay ABSENT there rather than be filled in.
+  it('maps captureToolFailure for claude-code and deliberately not for codex', () => {
+    const cc = descriptors.find((d) => d.id === 'claude-code')
+    const cx = descriptors.find((d) => d.id === 'codex')
+
+    expect(cc?.eventMap.captureTool).toBe('PostToolUse')
+    expect(cc?.eventMap.captureToolFailure).toBe('PostToolUseFailure')
+
+    expect(cx?.eventMap.captureTool).toBe('PostToolUse')
+    expect(cx?.eventMap.captureToolFailure).toBeUndefined()
+    expect(Object.keys(cx?.eventMap ?? {})).not.toContain('captureToolFailure')
+  })
 })

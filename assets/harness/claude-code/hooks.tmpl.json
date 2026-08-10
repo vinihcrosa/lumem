@@ -34,6 +34,18 @@
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{HOOK_BUNDLE}}\" claude-code capture-tool-failure",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

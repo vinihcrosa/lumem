@@ -57,6 +57,17 @@ export const adapterDescriptorSchema = z.object({
     inject: z.string().optional(),
     capturePrompt: z.string().optional(),
     captureTool: z.string().optional(),
+    /**
+     * The harness event for a tool call that FAILED, when the harness has one.
+     *
+     * Optional because it is a per-harness fact, not a lumem-wide one (principle
+     * 5: which events a harness exposes is descriptor data). Claude Code fires
+     * `PostToolUse` only after a call succeeds and routes failures to a separate
+     * `PostToolUseFailure`, so it needs both subscriptions; Codex has no failure
+     * variant among its events, so its `PostToolUse` covers both outcomes and
+     * this key stays absent.
+     */
+    captureToolFailure: z.string().optional(),
     end: z.string().optional(),
   }),
   injection: z.array(injectionMechanismSchema).min(1),

@@ -168,13 +168,20 @@ function spawnSpy(onSpawn?: () => void): {
 describe('createHandlers', () => {
   it('registers a handler for every lumem event', () => {
     const h = make()
-    expect(Object.keys(h).sort()).toEqual(['capture-prompt', 'capture-tool', 'end', 'inject'])
+    expect(Object.keys(h).sort()).toEqual([
+      'capture-prompt',
+      'capture-tool',
+      'capture-tool-failure',
+      'end',
+      'inject',
+    ])
   })
 
   it('exports a ready-made table bound to the real process env', () => {
     expect(Object.keys(handlers).sort()).toEqual([
       'capture-prompt',
       'capture-tool',
+      'capture-tool-failure',
       'end',
       'inject',
     ])
@@ -455,6 +462,148 @@ describe('capture-tool', () => {
   })
 })
 
+describe('capture-tool-failure', () => {
+  /** Seed one `cmd` signal, so the recovery lookback has a tail to scan. */
+  function seedCmd(projectDir: string, cmd: string, exit: number): void {
+    const file = journalFile(projectDir)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.appendFileSync(file, `${JSON.stringify({ t: 'cmd', ts: TS, cmd, exit })}\n`)
+  }
+
+  // THE regression test. In production `PostToolUseFailure` carries no exit code
+  // at all — its documented payload is `error: { type, message }` — so a handler
+  // that defaults to 0 records every failure as a success, which is exactly how
+  // 161 consecutive `exit=0` signals reached a real journal and left `recovery`
+  // structurally dead. The event firing IS the failure; the code must be non-zero.
+  it('records a non-zero exit for a failed command whose payload carries no exit code', () => {
+    const projectDir = project()
+    fire(make(), 'capture-tool-failure', {
+      cwd: projectDir,
+      session_id: SESSION_ID,
+      tool_name: 'Bash',
+      tool_input: { command: 'npm test' },
+      error: { type: 'timeout', message: 'Command timed out after 120 seconds' },
+    })
+
+    const written = signals(projectDir)
+    expect(written).toHaveLength(1)
+    const cmd = written[0] as Extract<Signal, { t: 'cmd' }>
+    expect(cmd.exit).not.toBe(0)
+    expect(written).toEqual([{ t: 'cmd', ts: TS, cmd: 'npm test', exit: 1 }])
+  })
+
+  it('prefers an explicit exit code from every accepted response shape over the default', () => {
+    const shapes: { payload: Record<string, unknown>; exit: number }[] = [
+      { payload: { tool_response: { exit_code: 2 } }, exit: 2 },
+      { payload: { tool_result: { exitCode: 3 } }, exit: 3 },
+      { payload: { tool_response: { exitCode: 4 } }, exit: 4 },
+      { payload: { tool_result: { exit_code: 5 } }, exit: 5 },
+      // no code anywhere, or one lumem cannot read: the event itself is the signal
+      { payload: {}, exit: 1 },
+      { payload: { tool_response: 'saída em texto' }, exit: 1 },
+    ]
+
+    for (const shape of shapes) {
+      const projectDir = project()
+      fire(make(), 'capture-tool-failure', {
+        cwd: projectDir,
+        session_id: SESSION_ID,
+        tool_name: 'Bash',
+        tool_input: { command: 'npm test' },
+        ...shape.payload,
+      })
+
+      expect(signals(projectDir)).toEqual([{ t: 'cmd', ts: TS, cmd: 'npm test', exit: shape.exit }])
+    }
+  })
+
+  it('never emits a recovery signal, even when the tail holds a matching failure', () => {
+    const projectDir = project()
+    seedCmd(projectDir, 'npm test', 1)
+
+    fire(make(), 'capture-tool-failure', {
+      cwd: projectDir,
+      session_id: SESSION_ID,
+      tool_name: 'Bash',
+      tool_input: { command: 'npm test' },
+    })
+
+    // a failure can never be a recovery, whatever came before it
+    expect(signals(projectDir).map((s) => s.t)).toEqual(['cmd', 'cmd'])
+    expect(signals(projectDir)).toEqual([
+      { t: 'cmd', ts: TS, cmd: 'npm test', exit: 1 },
+      { t: 'cmd', ts: TS, cmd: 'npm test', exit: 1 },
+    ])
+  })
+
+  // The sequence production could never produce: the failure only reaches the
+  // journal through `PostToolUseFailure`, and the later success then finds it.
+  it('lets a later success recover from a failure captured on the failure event', () => {
+    const projectDir = project()
+    const h = make()
+    const base = { cwd: projectDir, session_id: SESSION_ID, tool_name: 'Bash' }
+
+    fire(h, 'capture-tool-failure', { ...base, tool_input: { command: 'npm run check' } })
+    fire(h, 'capture-tool', { ...base, tool_input: { command: 'npm run check' } })
+
+    const written = signals(projectDir)
+    expect(written.map((s) => s.t)).toEqual(['cmd', 'recovery', 'cmd'])
+    const recovery = written[1] as Extract<Signal, { t: 'recovery' }>
+    expect(recovery.failed).toBe('npm run check')
+    expect(recovery.passed).toBe('npm run check')
+    expect(written).toEqual([
+      { t: 'cmd', ts: TS, cmd: 'npm run check', exit: 1 },
+      { t: 'recovery', ts: TS, failed: 'npm run check', passed: 'npm run check' },
+      { t: 'cmd', ts: TS, cmd: 'npm run check', exit: 0 },
+    ])
+  })
+
+  // DELIBERATE: a failed Edit still says the session was working on that file,
+  // and the `file` signal carries no outcome that the failure would contradict.
+  // Dropping it would blind consolidation to precisely the files that fought back.
+  it('still records the file signal for a file-touching tool that failed', () => {
+    const projectDir = project()
+    fire(make(), 'capture-tool-failure', {
+      cwd: projectDir,
+      session_id: SESSION_ID,
+      tool_name: 'Edit',
+      tool_input: { file_path: 'src/index.ts', old_string: 'a', new_string: 'b' },
+      error: { type: 'string_not_found', message: 'old_string not found' },
+    })
+
+    expect(signals(projectDir)).toEqual([{ t: 'file', ts: TS, path: 'src/index.ts', tool: 'Edit' }])
+  })
+
+  it('redacts secrets out of the failed command', () => {
+    const projectDir = project()
+    fire(make(), 'capture-tool-failure', {
+      cwd: projectDir,
+      session_id: SESSION_ID,
+      tool_name: 'Bash',
+      tool_input: { command: `curl -H "token: ghp_${'c'.repeat(36)}" https://api.example.com` },
+    })
+
+    const written = signals(projectDir)
+    expect(written).toHaveLength(1)
+    const cmd = written[0] as Extract<Signal, { t: 'cmd' }>
+    expect(cmd.cmd).toContain('[REDACTED:')
+    expect(cmd.cmd).not.toContain('ghp_c')
+  })
+
+  it('appends nothing for a failed tool that touches neither a file nor the shell', () => {
+    const projectDir = project()
+    fire(make(), 'capture-tool-failure', {
+      cwd: projectDir,
+      session_id: SESSION_ID,
+      tool_name: 'WebSearch',
+      tool_input: { query: 'vitest matchers' },
+      error: { type: 'network', message: 'offline' },
+    })
+
+    expect(tree(projectDir)).toEqual([])
+  })
+})
+
 describe('end', () => {
   it('appends the session end signal', () => {
     const projectDir = project()
@@ -611,6 +760,14 @@ describe('wrong-project guard', () => {
       event: 'capture-tool',
       payload: { tool_name: 'Bash', tool_input: { command: 'npm test' } },
     },
+    {
+      event: 'capture-tool-failure',
+      payload: { tool_name: 'Edit', tool_input: { file_path: 'src/a.ts' } },
+    },
+    {
+      event: 'capture-tool-failure',
+      payload: { tool_name: 'Bash', tool_input: { command: 'npm test' } },
+    },
     { event: 'end', payload: {} },
   ]
 
@@ -660,7 +817,13 @@ describe('malformed payloads', () => {
   it('never throws, whatever the payload looks like', () => {
     const projectDir = project()
     for (const payload of broken) {
-      for (const event of ['inject', 'capture-prompt', 'capture-tool', 'end'] as LumemEvent[]) {
+      for (const event of [
+        'inject',
+        'capture-prompt',
+        'capture-tool',
+        'capture-tool-failure',
+        'end',
+      ] as LumemEvent[]) {
         expect(() => fire(make(), event, payload)).not.toThrow()
         expect(() => fire(make(), event, { ...payload, cwd: projectDir })).not.toThrow()
       }

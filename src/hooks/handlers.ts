@@ -65,6 +65,18 @@ const FILE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
 /** Response containers a harness may use to report a command's exit status. */
 const RESPONSE_KEYS = ['tool_response', 'tool_result']
 
+/**
+ * Exit code recorded for a FAILED tool call whose payload carries no code.
+ *
+ * `PostToolUseFailure` reports the failure as `error: { type, message }` — there
+ * is no exit code in it, and the rest of the shape is not contractual — so lumem
+ * reads no guessed field. The event's own existence is the signal: it fires only
+ * after a call fails, and any non-zero code is what makes `detectRecovery` able
+ * to see that failure later. Defaulting to 0 here is precisely the bug that kept
+ * `recovery` from ever firing in production.
+ */
+const FAILED_EXIT = 1
+
 /** Hand-rolled shape checks: no schema library may be linked into this bundle. */
 function str(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
@@ -246,18 +258,41 @@ function filePathOf(toolName: string, toolInput: Record<string, unknown>): strin
   return str(toolInput.notebook_path) ?? str(toolInput.path)
 }
 
-/** Exit status across the shapes harnesses actually send; absent means "it worked". */
-function exitCodeOf(payload: Record<string, unknown>): number {
+/**
+ * Exit status across the shapes harnesses actually send, or `whenAbsent` when
+ * none of them carries one. What "absent" means is the caller's call: on the
+ * success path a call with no code really did exit 0, on the failure path it
+ * did not (see {@link FAILED_EXIT}).
+ */
+function exitCodeOf(payload: Record<string, unknown>, whenAbsent: number): number {
   for (const key of RESPONSE_KEYS) {
     const response = rec(payload[key])
     const value = num(response.exit_code) ?? num(response.exitCode)
     if (value !== undefined) return value
   }
-  return 0
+  return whenAbsent
 }
 
-/** PostToolUse: derive file and command signals from the tool call. */
-function captureTool(input: HookInput, deps: HandlerDeps): void {
+/**
+ * Journal the file and command signals of one tool call — the shared body of
+ * `capture-tool` and `capture-tool-failure`, which see the same payload and
+ * differ only in the two decisions the caller passes in:
+ *
+ * - `whenExitAbsent`: the exit code recorded when the payload carries none.
+ * - `mayRecover`: whether a successful command here may close an earlier
+ *   failure. Only a success can — a failure is never a recovery — so the
+ *   failure event never asks for the lookback.
+ *
+ * The `file` signal is written for a failed call too, DELIBERATELY: a failed
+ * Edit still says the session was working on that file, the signal carries no
+ * outcome the failure would contradict, and dropping it would hide exactly the
+ * files that gave the most trouble from consolidation.
+ */
+function captureToolCall(
+  input: HookInput,
+  deps: HandlerDeps,
+  options: { whenExitAbsent: number; mayRecover: boolean },
+): void {
   const toolName = str(input.payload.tool_name) ?? ''
   const toolInput = rec(input.payload.tool_input)
   const filePath = filePathOf(toolName, toolInput)
@@ -274,9 +309,9 @@ function captureTool(input: HookInput, deps: HandlerDeps): void {
 
   if (command === undefined) return
   const cmd = redact(command)
-  const exit = exitCodeOf(input.payload)
+  const exit = exitCodeOf(input.payload, options.whenExitAbsent)
 
-  if (exit === 0) {
+  if (options.mayRecover && exit === 0) {
     // `detectRecovery` scans backwards and stops at the first entry for the same
     // work, so it MUST run before this command's own signal is appended.
     const recovery = detectRecovery(ctx.sessionFile, cmd, ctx.ts)
@@ -284,6 +319,23 @@ function captureTool(input: HookInput, deps: HandlerDeps): void {
   }
 
   appendSignal(ctx.sessionsDir, ctx.sessionId, { t: 'cmd', ts: ctx.ts, cmd, exit })
+}
+
+/** PostToolUse: signals from a tool call that SUCCEEDED — no code means exit 0. */
+function captureTool(input: HookInput, deps: HandlerDeps): void {
+  captureToolCall(input, deps, { whenExitAbsent: 0, mayRecover: true })
+}
+
+/**
+ * PostToolUseFailure: the same signals for a tool call that FAILED.
+ *
+ * Claude Code fires `PostToolUse` only after a call succeeds and this event
+ * after one fails — they are separate and mutually exclusive, so subscribing to
+ * `PostToolUse` alone means never seeing a failure, and a journal of nothing but
+ * `exit=0` leaves `detectRecovery` unable to ever fire.
+ */
+function captureToolFailure(input: HookInput, deps: HandlerDeps): void {
+  captureToolCall(input, deps, { whenExitAbsent: FAILED_EXIT, mayRecover: false })
 }
 
 /**
@@ -352,6 +404,7 @@ export function createHandlers(deps?: Partial<HandlerDeps>): HookHandlers {
     inject: (input) => inject(input, resolved),
     'capture-prompt': (input) => capturePrompt(input, resolved),
     'capture-tool': (input) => captureTool(input, resolved),
+    'capture-tool-failure': (input) => captureToolFailure(input, resolved),
     end: (input) => end(input, resolved),
   }
 }

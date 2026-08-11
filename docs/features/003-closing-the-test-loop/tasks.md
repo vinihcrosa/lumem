@@ -164,7 +164,7 @@ Two cases beyond the contract's letter, because the boundary logic invited them:
 
 ## T3 — Implemented cases
 
-- [ ] T3 — Implemented cases
+- [x] T3 — Implemented cases
 - **Gate:** vitest run src/spec/implemented
 
 ### Overview
@@ -198,6 +198,30 @@ UT-15…UT-24. **UT-16 is the reason this feature exists**: a comment naming a c
 ### Success criteria
 
 Every case passes. Run against this repository, 002's declared cases resolve as measured: 83 implemented, IT-18 and IT-19 not.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/implemented.ts`, `src/spec/implemented.test.ts`, plus `src/spec/walk.ts` extracted from T2; 16 assertions covering UT-15…UT-24.
+
+Evidence: `npm run verify` — 154 files checked, `tsc --noEmit` silent, **1540 tests passed** across 62 files. The measurement that produced this feature, now asserted by the code the feature produced:
+
+```
+85 ids declared in 002's contract
+missing → ['IT-18', 'IT-19']
+patternHits > 1000
+```
+
+**The walk was extracted rather than copied.** T2 owned three subtle predicates — a boundary-aware prefix, a two-form exclusion, and "is this directory worth entering" — and this task needed all three. Two implementations would have drifted on the first change to either, which is the class of defect the spec gates exist to catch. `src/spec/walk.ts` now holds them; `fingerprint.ts` imports them and its 14 cases pass unchanged.
+
+**The matching rule was wrong in the design, and UT-18 failed twice before it was right.**
+
+The rule as written — *the line contains the id* — was written by someone thinking in JavaScript, where a test name is a string and `UT-01` appears verbatim. The default pattern set it ships alongside includes `func Test` and `def test_`, and **a hyphen is illegal in an identifier in both.** So the check advertised two languages it could never match in.
+
+First fix: accept the punctuation-free form, `UT01`. UT-18 then passed and the pytest case failed, because Python lowercases by convention — `def test_ut01_parses`. Second fix: match case-insensitively.
+
+Neither failure was a bad fixture. Both were the contract being honest about languages the rule had not thought about, and the cost of finding them here rather than in a user's Go repository is two minutes.
+
+**One sharp edge recorded rather than fixed.** Substring containment means `UT-011` satisfies `UT-01`. Unreachable with two-digit ids, and a boundary-aware search would need to know what characters may follow an id in an arbitrary language. Named in a case so the next person meets it as a decision rather than as a surprise.
 
 ---
 

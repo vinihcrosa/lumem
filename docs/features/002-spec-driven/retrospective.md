@@ -110,9 +110,54 @@ Stated plainly, because the completion notes are otherwise easy to read as more 
 - **The effect field has survived one feature, not three.** Nine of ten values are `accepted`, which is either honest or reflexive, and one feature cannot tell which. The success criterion in `tdd.md` §12 asks exactly this and is still open.
 - **No independent verifier ran.** `doctor` reports `verification=independent` for Claude Code, but every verdict in this feature was written by the same agent that wrote the code. The evidence gate ran; the author ≠ verifier property did not.
 
+## 7b. The test loop is open, and it fails toward false confidence
+
+Raised by the author at close, measured rather than argued. The reference framework closes the loop from spec to test to pass; lumem closes spec to task and then trusts.
+
+Measured against this feature's own suite:
+
+```
+casos declarados em tests.md      : 85
+casos com um it() citando o id    : 83
+casos sem nenhum it() citando o id: 2      (IT-18, IT-19)
+it() na suíte inteira             : 1306
+it() carregando um id de caso     : 132     (10%)
+```
+
+IT-18 and IT-19 **were** implemented — one as a comment inside an existing assertion, one as a step in `verify-pack.sh`. And the convention that links the other 83 exists because it was typed, not because anything requires it.
+
+**Nothing in lumem noticed.** `lint --phase tasks` exited 3 today on an unrelated info finding. The consequence, stated exactly: **a task can be ticked done with every case assigned and no test written, and the pipeline answers `phase=done`.**
+
+What lumem has, and it is not nothing: `tests.md` as a canonical numbered contract with a case-writing rule, and `orphan-test-id` / `duplicate-test-id` as **gates** — every declared case owned by exactly one task, which the reference framework has no equivalent of.
+
+What it does not have:
+
+| Missing | Consequence |
+|---|---|
+| A canonical link from a case id to a test | nothing can tell a declared case from an implemented one |
+| A per-task gate command, declared and checked | "the tests pass" is an assertion, not an observation |
+| A completion gate that refuses a verdict with no live evidence | the verdict is a typed line; nothing checks it is real or current |
+| An independent verifier that actually runs | every verdict here was written by the agent that wrote the code |
+| A discrimination pass proving the cases can fail | deferred in D12, and untested |
+
+**Why this ranks above everything else in §8.** Every other weakness in this pipeline degrades *visibly*: a vague requirement produces a worse artifact you can read, a prose design produces implementations that diverge in review. This one degrades **silently and in the direction of false confidence** — the verdict says PASS. It is the failure class `lumem-verify` and design rule 1 exist to prevent, and the framework does not hold itself to it.
+
+The asymmetry is worth naming because the two look identical in the artifact: `orphan-test-id` proves a case has an **owner**. Nothing proves it has an **implementation**.
+
+**The portable route.** lumem is stack-agnostic, so "the test suite" is not a concept it can know. The reference framework's move is the one to copy: **the task declares its gate command**, and the verdict cites that command's output. The framework never learns what a test runner is; it requires the task to name one.
+
+Cheapest first:
+
+1. Make the id-to-test link canonical, then gate on `unimplemented-case` — declared ids compared against ids found in the suite. It would have caught IT-18 and IT-19 today.
+2. A required `Gate:` line per task, checked structurally, and a verdict carrying a fingerprint of the tree so a stale PASS becomes detectable.
+3. The discrimination pass. `tests.md` was already shaped to accept it without a rewrite.
+
+**This is 003.** The author has chosen to build it through the pipeline itself, which also settles §1: the requirements phase finally runs through its own skill, on a feature whose subject is the pipeline's weakest property.
+
 ## 8. Changes to make before 003
 
-1. **Run 003's requirements phase through `lumem-prd`, from the first message.** Nothing else in this list matters as much.
+0. **Close the test loop — §7b.** It is 003, and it outranks the rest of this list: it is the only item whose absence produces a false PASS rather than a visible weakness.
+1. **Run 003's requirements phase through `lumem-prd`, from the first message.** Nothing else in this list matters as much, and 003 satisfies it by construction.
 2. **Consider capping at one question round** unless a rejected framing forces a second. Decide after 003 scores its rounds, not before.
 3. **Calibrate any new heuristic against prose that predates it.** Add a fixture drawn from an existing document, not written for the rule.
 4. **Split the prune into its two audits** — scope after requirements, redundancy after design — if 003 confirms the design-phase pass only ever finds duplication.

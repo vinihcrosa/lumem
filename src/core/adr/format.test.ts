@@ -393,3 +393,41 @@ describe('parseAdr', () => {
     }
   })
 })
+
+describe('the feature field (002 T7)', () => {
+  it('UT-60 parses `feature` as a known key, with no unknown-key warning', () => {
+    const adr = parseAdr(ID, frontmatter({ ...BASE, feature: '002-spec-driven' }))
+    expect(adr.feature).toBe('002-spec-driven')
+    expect(adr.warnings).toEqual([])
+  })
+
+  it('UT-61 leaves an ADR without a feature valid, and omits the key on the way out', () => {
+    const adr = parseAdr(ID, frontmatter(BASE))
+    expect(adr.feature).toBeUndefined()
+    expect(adr.warnings).toEqual([])
+    expect(serializeAdr(WITHOUT_SUPERSEDES)).not.toContain('feature:')
+  })
+
+  it('UT-61 treats an empty feature value as absent rather than as an empty string', () => {
+    const adr = parseAdr(ID, frontmatter({ ...BASE, feature: '' }))
+    expect(adr.feature).toBeUndefined()
+  })
+
+  it('UT-62 round-trips the feature field with a stable field order', () => {
+    const input: AdrInput = { ...FULL, feature: '002-spec-driven' }
+    const rendered = serializeAdr(input)
+
+    expect(rendered.split('\n').slice(1, 7)).toEqual([
+      'title: Session cookies over JWT',
+      'date: 2026-08-08',
+      'area: auth',
+      'summary: Auth uses session cookies because revocation has to take effect immediately.',
+      'feature: 002-spec-driven',
+      'supersedes: 2026-03-11-jwt-for-auth.md',
+    ])
+
+    const back = parseAdr(ID, rendered)
+    expect(back.feature).toBe('002-spec-driven')
+    expect(serializeAdr(back)).toBe(rendered)
+  })
+})

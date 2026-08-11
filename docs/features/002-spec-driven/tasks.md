@@ -419,7 +419,7 @@ UT-59 sweeps every budget from 0 to 900 in steps of 13 rather than asserting one
 
 ## T7 — ADR `feature:` field
 
-- [ ] T7 — ADR feature field
+- [x] T7 — ADR feature field
 
 ### Overview
 
@@ -450,6 +450,34 @@ UT-60…UT-64.
 ### Success criteria
 
 Every case passes. `adr lint` on this repository's existing ADRs produces no new findings.
+
+### Completion notes
+
+**Done 2026-08-11.** `core/adr/format.ts`, `core/adr/lint.ts`, `cli/adr-lint.ts`, `cli/adr-new.ts`; 9 assertions covering UT-60…UT-64.
+
+Evidence: `npm run verify` — 148 files checked, `tsc --noEmit` silent, **1498 tests passed** across 60 files. Real CLI:
+
+```
+$ node dist/cli.js adr lint
+no findings — 0 ADRs checked          exit=0
+
+$ node dist/cli.js adr new "Probe" --area demo --summary s --feature 002-spec-driven --dry-run
+title: Probe
+date: 2026-08-11
+area: demo
+summary: s
+feature: 002-spec-driven
+```
+
+**The serializer now has an optional block, not a special case.** `feature` and `supersedes` are one `OPTIONAL_FIELDS` list emitted after the required four, so field order is stable and adding a sixth field later touches one array rather than three branches. `parseAdr` reads them through the same list. UT-62 asserts the order explicitly, so a reshuffle fails loudly.
+
+**The check needed the feature list passed in.** `core/adr/lint.ts` reaches the bundled hook and touches no `node:` builtin, so it cannot read `docs/features/` itself. `lintAdrs(set, { features })` takes the list, and the CLI reads the directory. Omitting the option **skips the check** rather than treating it as an empty list — "no features exist" and "the caller did not look" are different facts, and conflating them would make every `feature:` value a finding in the hook path.
+
+`--feature` is written through unvalidated on purpose: `adr new` does not check that the directory exists, because an ADR outlives the slice that produced it and the folder can be renamed or archived later. Lint reports the mismatch, at severity info.
+
+### Follow-up, not done here
+
+**002 records eighteen decisions in `decisions.md` and zero ADRs.** Several are architectural with rejected alternatives — D8 (bundled scripts over a CLI dependency) most clearly — and the pipeline this feature defines says those become ADRs. Writing them is not T7's scope, but it is the obvious first use of the field just added, and `adr lint` currently checks nothing because `docs/adr/` is empty.
 
 ---
 

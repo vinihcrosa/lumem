@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import type { Command } from 'commander'
 import type { AdrFinding } from '../core/adr/lint'
@@ -23,9 +24,26 @@ const EXIT_FINDINGS = 3
  * CLI's top-level catch sets; nothing here throws, because reading and linting
  * are both tolerant by construction.
  */
+/**
+ * Directory names under `docs/features/`. A missing or unreadable folder yields
+ * an empty list, which is the truth `unknown-feature` needs: no features exist,
+ * so any `feature:` value names none of them.
+ */
+function featureDirs(docsDir: string): string[] {
+  try {
+    return fs
+      .readdirSync(path.join(docsDir, 'features'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
 export function runAdrLint(ctx: CliContext): { report: AdrLintReport; exitCode: number } {
-  const set = readAdrs(path.join(ctx.projectDir, 'docs'))
-  const findings = lintAdrs(set)
+  const docsDir = path.join(ctx.projectDir, 'docs')
+  const set = readAdrs(docsDir)
+  const findings = lintAdrs(set, { features: featureDirs(docsDir) })
 
   return {
     report: { findings, adrsChecked: set.adrs.length },

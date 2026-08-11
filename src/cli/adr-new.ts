@@ -8,6 +8,8 @@ import type { CliContext } from './context'
 export interface AdrNewOptions {
   area: string
   summary?: string
+  /** The `docs/features/` directory that produced this decision. */
+  feature?: string
   supersedes?: string
   /** YYYY-MM-DD; defaults to today. */
   date?: string
@@ -105,11 +107,16 @@ export function runAdrNew(ctx: CliContext, title: string, opts: AdrNewOptions): 
   }
 
   const summary = opts.summary?.trim()
+  // Written through unvalidated: `adr lint` reports a name that matches no
+  // directory, and it is informational there because a feature folder can be
+  // renamed or archived without invalidating a decision it produced.
+  const feature = opts.feature?.trim()
   const content = serializeAdr({
     title: cleanTitle,
     date,
     area: opts.area.trim(),
     summary: summary === undefined || summary === '' ? TODO_SUMMARY : summary,
+    ...(feature === undefined || feature === '' ? {} : { feature }),
     ...(supersedes === undefined || supersedes === '' ? {} : { supersedes }),
     body: BODY_TEMPLATE,
   })
@@ -141,6 +148,7 @@ type Emit = (json: boolean, report: unknown, rendered: string) => void
 interface AdrNewFlags {
   area: string
   summary?: string
+  feature?: string
   supersedes?: string
   date?: string
   dryRun?: boolean
@@ -171,6 +179,7 @@ export function registerAdrCommands(
     .description('Create an architecture decision record under docs/adr/')
     .requiredOption('--area <area>', 'area the decision belongs to, e.g. auth')
     .option('--summary <text>', 'one sentence on what this decides (seeds a TODO when absent)')
+    .option('--feature <slug>', 'docs/features directory that produced this decision')
     .option('--supersedes <file>', 'ADR filename this replaces, or a <module>/<rule> id')
     .option('--date <date>', 'decision date as YYYY-MM-DD (default today)')
     .option('--dry-run', 'print the file that would be written, without writing it')
@@ -179,6 +188,7 @@ export function registerAdrCommands(
       const { result, exitCode } = runAdrNew(ctx, title, {
         area: options.area,
         ...(options.summary === undefined ? {} : { summary: options.summary }),
+        ...(options.feature === undefined ? {} : { feature: options.feature }),
         ...(options.supersedes === undefined ? {} : { supersedes: options.supersedes }),
         ...(options.date === undefined ? {} : { date: options.date }),
         dryRun: options.dryRun === true,

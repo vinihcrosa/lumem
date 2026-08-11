@@ -25,6 +25,8 @@ export type AdrLintKind =
   | 'date-mismatch'
   /** `summary` is still the placeholder `adr new` seeded. */
   | 'todo-summary'
+  /** `feature` names a directory that is not under `docs/features/`. */
+  | 'unknown-feature'
 
 export interface AdrFinding {
   kind: AdrLintKind
@@ -55,7 +57,17 @@ const SEVERITY_RANK: Record<AdrFinding['severity'], number> = { gate: 0, info: 1
  * so two runs over the same folder render identically and a gate is never buried
  * under information.
  */
-export function lintAdrs(set: AdrSet): AdrFinding[] {
+export interface AdrLintOptions {
+  /**
+   * Feature directory names under `docs/features/`. Passed in rather than read:
+   * this module reaches the bundled hook and touches no `node:` builtin. Omit it
+   * to skip the `feature` check entirely — nothing is assumed from an absent list,
+   * since "no features exist" and "the caller did not look" are different facts.
+   */
+  features?: readonly string[]
+}
+
+export function lintAdrs(set: AdrSet, opts?: AdrLintOptions): AdrFinding[] {
   const findings: AdrFinding[] = [...brokenSupersedes(set), ...supersedesCycles(set)]
 
   for (const adr of set.adrs) {
@@ -66,6 +78,16 @@ export function lintAdrs(set: AdrSet): AdrFinding[] {
         severity: 'info',
         ids: [adr.id],
         message: warning,
+      })
+    }
+
+    const features = opts?.features
+    if (features !== undefined && adr.feature !== undefined && !features.includes(adr.feature)) {
+      findings.push({
+        kind: 'unknown-feature',
+        severity: 'info',
+        ids: [adr.id],
+        message: `feature '${adr.feature}' names no directory under docs/features/; a decision outlives the slice that produced it, so this is a note, not a break`,
       })
     }
 

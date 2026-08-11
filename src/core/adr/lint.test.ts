@@ -23,6 +23,7 @@ interface AdrFields {
   date?: string
   area?: string
   summary?: string
+  feature?: string
   supersedes?: string
   body?: string
 }
@@ -38,6 +39,7 @@ function writeAdr(docsDir: string, id: string, fields: AdrFields = {}): void {
       date: fields.date ?? id.slice(0, 10),
       area: fields.area ?? 'auth',
       summary: fields.summary ?? 'Because it had to be decided.',
+      feature: fields.feature,
       supersedes: fields.supersedes,
       body: fields.body ?? '## Context\nWhy.\n',
     }),
@@ -328,5 +330,41 @@ describe('lintAdrs — ordering', () => {
     const first = lintAdrs(set)
     expect(lintAdrs(set)).toEqual(first)
     expect(JSON.stringify([set.adrs, [...set.supersededBy]])).toBe(before)
+  })
+})
+
+describe('unknown-feature (002 T7)', () => {
+  const withFeature = (feature: string): AdrSet =>
+    setOf((docs) => {
+      writeAdr(docs, A, { feature })
+    })
+
+  it('UT-63 reports a feature naming no directory, as information', () => {
+    const findings = lintAdrs(withFeature('404-nope'), { features: ['002-spec-driven'] })
+    const finding = findings.find((f) => f.kind === 'unknown-feature')
+    expect(finding?.severity).toBe('info')
+    expect(finding?.ids).toEqual([A])
+    expect(finding?.message).toContain('404-nope')
+  })
+
+  it('UT-63 says nothing when the feature exists', () => {
+    const findings = lintAdrs(withFeature('002-spec-driven'), { features: ['002-spec-driven'] })
+    expect(findings.map((f) => f.kind)).not.toContain('unknown-feature')
+  })
+
+  it('UT-63 skips the check entirely when no list is supplied', () => {
+    // "no features exist" and "the caller did not look" are different facts.
+    expect(kinds(withFeature('404-nope'))).not.toContain('unknown-feature')
+  })
+
+  it('UT-63 reports every feature as unknown when the folder holds none', () => {
+    const findings = lintAdrs(withFeature('002-spec-driven'), { features: [] })
+    expect(findings.map((f) => f.kind)).toContain('unknown-feature')
+  })
+
+  it('UT-64 makes any finding exit-worthy: an info-only set is still a finding', () => {
+    const findings = lintAdrs(withFeature('404-nope'), { features: [] })
+    expect(findings).toHaveLength(1)
+    expect(findings.every((f) => f.severity === 'info')).toBe(true)
   })
 })

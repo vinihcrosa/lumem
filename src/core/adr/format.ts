@@ -4,7 +4,7 @@
  * Everything here is pure and dependency-free — no zod, no YAML library, not
  * even a `node:` builtin. Part of `core/adr` reaches the bundled hook, where the
  * purity assertions in `src/hooks/main.test.ts` fail the moment an external
- * import appears. The five frontmatter fields are flat, single-line strings, so
+ * import appears. The six frontmatter fields are flat, single-line strings, so
  * a hand-rolled key/value split is both sufficient and cheaper than a parser,
  * exactly as `core/capture` and `core/memory` do it.
  *
@@ -25,6 +25,8 @@ export interface Adr {
   date: string
   area: string
   summary: string
+  /** The `docs/features/` directory that produced the decision. Absent when none did. */
+  feature?: string
   /** An ADR id, or `<module>/<rule>`. Absent when this ADR replaces nothing. */
   supersedes?: string
   /** Everything after the closing fence, verbatim. */
@@ -48,9 +50,11 @@ reconstructed later** — the rest is recoverable from the code.
 What this makes easy, and what it makes hard.
 `
 
-/** Emitted in this order by `serializeAdr`; `supersedes` last and optional. */
+/** Emitted in this order by `serializeAdr`; the optional pair follows, `supersedes` last. */
 const REQUIRED_FIELDS = ['title', 'date', 'area', 'summary'] as const
-const KNOWN_KEYS: readonly string[] = [...REQUIRED_FIELDS, 'supersedes']
+/** Optional, emitted after the required block in this order. */
+const OPTIONAL_FIELDS = ['feature', 'supersedes'] as const
+const KNOWN_KEYS: readonly string[] = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]
 
 /** Combining marks left behind by NFD decomposition. */
 const COMBINING_MARKS = /\p{M}/gu
@@ -142,8 +146,10 @@ export function parseAdr(id: string, content: string): Adr {
     body: split.body,
     warnings,
   }
-  const supersedes = fields.get('supersedes')
-  if (supersedes !== undefined && supersedes !== '') adr.supersedes = supersedes
+  for (const field of OPTIONAL_FIELDS) {
+    const value = fields.get(field)
+    if (value !== undefined && value !== '') adr[field] = value
+  }
 
   for (const field of REQUIRED_FIELDS) {
     if (adr[field] === '') warnings.push(`missing or empty required field '${field}'`)
@@ -162,8 +168,9 @@ export function parseAdr(id: string, content: string): Adr {
 export function serializeAdr(adr: Omit<Adr, 'id' | 'warnings'>): string {
   let out = `${FENCE}\n`
   for (const field of REQUIRED_FIELDS) out += `${field}: ${quoteIfNeeded(adr[field])}\n`
-  if (adr.supersedes !== undefined && adr.supersedes !== '') {
-    out += `supersedes: ${quoteIfNeeded(adr.supersedes)}\n`
+  for (const field of OPTIONAL_FIELDS) {
+    const value = adr[field]
+    if (value !== undefined && value !== '') out += `${field}: ${quoteIfNeeded(value)}\n`
   }
   out += `${FENCE}\n`
 

@@ -650,3 +650,104 @@ function rankedIds(all: Fact[], type: MemoryType): string[] {
     })
     .map((r) => r.fact.id)
 }
+
+// ---------------------------------------------------------------------------
+// Contract: the truncation account (002 T6, TDD §9.1)
+// ---------------------------------------------------------------------------
+
+describe('buildInjection — truncation account', () => {
+  const account = (project: number, correction: number, preference: number): string =>
+    `<!-- lumem:truncated project=${project} correction=${correction} preference=${preference} -->\n`
+
+  /**
+   * Bodies are deliberately long: a fact line has to cost more than the account
+   * does, or the room left for the account fits another fact instead — facts come
+   * first, which is correct, and made the first draft of these cases wrong.
+   */
+  const body = (type: MemoryType, i: number): string => `${type} fact ${i} ${'x'.repeat(120)}`
+
+  const line = (type: MemoryType, i: number, date: string): string =>
+    `- [${date}] ${body(type, i)}\n`
+
+  const DATES = ['2026-01-01', '2026-01-02', '2026-01-03']
+
+  /** Three facts of each type; within a type the newest sorts first. */
+  function spread(): MemoryFile[] {
+    const of = (type: MemoryType): MemoryFile =>
+      mkFile(
+        DATES.map((date, i) => mk(`${type}-${i}`, date, body(type, i), type)),
+        type,
+      )
+    return [of('correction'), of('project'), of('preference')]
+  }
+
+  it('UT-56 ends the block with the account, and the counts match the omissions', () => {
+    const files = spread()
+    const full = buildInjection(files, 4096)
+    expect(full.truncated).toBe(false)
+    expect(full.includedFactIds).toHaveLength(9)
+
+    // Exactly one correction, plus the account. The next fact cannot fit in what
+    // the account leaves, because a fact line is more than twice its size.
+    const prefix = `${DOC}${CORRECTIONS}${line('correction', 2, DATES[2] as string)}`
+    const res = buildInjection(files, bytes(prefix) + bytes(account(3, 2, 3)))
+
+    expect(res.includedFactIds).toEqual(['correction-2'])
+    expect(res.truncated).toBe(true)
+    expect(res.text).toBe(`${prefix}${account(3, 2, 3)}`)
+  })
+
+  it('UT-56 counts per type, not in total', () => {
+    const files = spread()
+    const prefix =
+      `${DOC}${CORRECTIONS}` +
+      `${line('correction', 2, DATES[2] as string)}` +
+      `${line('correction', 1, DATES[1] as string)}` +
+      `${line('correction', 0, DATES[0] as string)}` +
+      `${PROJECT}${line('project', 2, DATES[2] as string)}`
+    const res = buildInjection(files, bytes(prefix) + bytes(account(2, 0, 3)))
+
+    expect(res.text).toBe(`${prefix}${account(2, 0, 3)}`)
+  })
+
+  it('UT-57 leaves the block byte-identical when nothing is dropped', () => {
+    const res = buildInjection(spread(), 4096)
+    expect(res.text).not.toContain('lumem:truncated')
+    expect(res.text.endsWith(line('preference', 0, DATES[0] as string))).toBe(true)
+  })
+
+  it('UT-58 says nothing when only the docs section was dropped', () => {
+    const files = [mkFile([mk('p1', '2026-01-01', 'proj one', 'project')], 'project')]
+    const exact = bytes(`${DOC}${PROJECT}- [2026-01-01] proj one\n`)
+    const res = buildInjection(files, exact, { docsDir: docsDirWith(['a.md']) })
+
+    expect(res.text).not.toContain(DOCS)
+    expect(res.text).not.toContain('lumem:truncated')
+    expect(res.truncated).toBe(false)
+  })
+
+  it('UT-59 never exceeds the budget because of the account', () => {
+    const files = spread()
+    for (let budget = 0; budget < 900; budget += 13) {
+      const res = buildInjection(files, budget)
+      expect(bytes(res.text)).toBeLessThanOrEqual(budget)
+    }
+  })
+
+  it('UT-59 drops the account rather than a fact when only one of them fits', () => {
+    const files = spread()
+    const prefix = `${DOC}${CORRECTIONS}${line('correction', 2, DATES[2] as string)}`
+    const res = buildInjection(files, bytes(prefix))
+
+    expect(res.includedFactIds).toEqual(['correction-2'])
+    expect(res.text).toBe(prefix)
+    // The caller is still told, so nothing depends on the comment being there.
+    expect(res.truncated).toBe(true)
+  })
+
+  it('UT-59 emits no block at all when not even one fact fits', () => {
+    const res = buildInjection(spread(), 5)
+    expect(res.text).toBe('')
+    expect(res.truncated).toBe(true)
+  })
+})

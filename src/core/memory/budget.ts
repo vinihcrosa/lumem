@@ -123,10 +123,12 @@ export function buildInjection(
   let docOpen = false
   const includedFactIds: string[] = []
   let truncated = false
+  const omitted: Record<MemoryType, number> = { correction: 0, project: 0, preference: 0 }
 
   for (const section of SECTIONS) {
     const candidates = ranked.filter((r) => r.fact.type === section.type).sort(byPriority)
     let sectionOpen = false
+    let included = 0
 
     for (const { fact } of candidates) {
       const line = renderFact(fact)
@@ -152,7 +154,10 @@ export function buildInjection(
       text += line
       used += cost
       includedFactIds.push(fact.id)
+      included++
     }
+
+    omitted[section.type] = candidates.length - included
   }
 
   const docsDir = opts?.docsDir
@@ -167,6 +172,25 @@ export function buildInjection(
       }
       text += DOCS_SECTION
       used += cost
+    }
+  }
+
+  // The truncation account (TDD 002 §9.1). Last, and only when facts were
+  // actually dropped: preflight reads it to load the remainder on demand instead
+  // of re-reading what the block already carried, which is what keeps the block
+  // an index rather than a second copy of the memory tree (001 D3).
+  //
+  // Only when something was included: a block holding nothing but a notice would
+  // break the `text` contract ("empty when nothing was included") and would spend
+  // the budget on metadata about memory the reader never got.
+  const totalOmitted = omitted.project + omitted.correction + omitted.preference
+  if (docOpen && totalOmitted > 0) {
+    const account = `<!-- lumem:truncated project=${omitted.project} correction=${omitted.correction} preference=${omitted.preference} -->\n`
+    // Same rule as the docs section: it fits under the budget or it does not
+    // appear. `truncated` still reports the fact to a programmatic caller.
+    if (used + utf8Bytes(account) <= budget) {
+      text += account
+      used += utf8Bytes(account)
     }
   }
 

@@ -360,7 +360,7 @@ Ten existing suites needed the third bundle staged in their fixtures. That is th
 
 ## T6 — Injection truncation account
 
-- [ ] T6 — Injection truncation account
+- [x] T6 — Injection truncation account
 
 ### Overview
 
@@ -391,6 +391,29 @@ UT-56…UT-59.
 ### Success criteria
 
 Every case passes. The hook path gains no measurable latency — `npm run bench:hook` unchanged within noise.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/core/memory/budget.ts` plus 7 assertions covering UT-56…UT-59.
+
+Evidence: `npm run verify` — 148 files checked, `tsc --noEmit` silent, **1489 tests passed** across 60 files. Latency unchanged:
+
+```
+hook latency over 100 cold runs (budget p95 < 150 ms)
+  capture-prompt  p50 29.9 ms   p95 31.3 ms   max 35.5 ms
+  capture-tool    p50 28.7 ms   p95 30.5 ms   max 32.0 ms
+  inject          p50 28.4 ms   p95 29.7 ms   max 30.3 ms
+OK
+```
+
+**Two rules the design did not state, decided here and recorded:**
+
+- **A fact always outranks the account.** When only one of them fits, the fact goes in and the comment does not — the same rule the docs section already follows. `truncated` still reports the fact to a programmatic caller, so nothing depends on the comment being present.
+- **No account without a block.** If nothing was included at all, the block stays empty rather than carrying a notice about memory the reader never got. A notice-only block would also break `InjectionResult.text`'s documented contract of being empty when nothing was included.
+
+**My first draft of the cases was wrong, and the reason is worth keeping.** With short fact bodies the account costs less than a fact line, so the budget I set aside for the comment fitted another fact instead — and the greedy fill correctly took the fact. The cases now use 120-character bodies so a fact costs more than twice the account, which makes the arithmetic express the intent instead of accidentally testing the opposite. The implementation was right both times.
+
+UT-59 sweeps every budget from 0 to 900 in steps of 13 rather than asserting one number, because the interesting failures are at the boundaries where the account almost fits.
 
 ---
 

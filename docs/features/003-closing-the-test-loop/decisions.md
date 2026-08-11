@@ -78,8 +78,19 @@ The mandatory prune, run at the close of the requirements phase. It asked nothin
 
 Three of seventeen requirements were restatements of behaviour 002 already ships and tests. They now sit in an **Inherited from 002** note in `prd.md`, which keeps the fact and drops the claim.
 
+## Second pass — after the design
+
+| Cut | Was | Why it went |
+|---|---|---|
+| **`VerdictRecord.fileCount`** | a parsed field holding the `(1284 files)` from the fingerprint line | Nothing reads it. It was decoration in a design whose whole subject is refusing unearned claims. The number stays in the example as prose for a human, which is all it ever was |
+| **UT-55** | "an unknown `--phase` value is rejected by the CLI, not by the checker" | Already shipped and asserted by 002's IT-07. Same class as the three requirements the first pass cut: a restatement of behaviour that exists |
+
+Both are the two shapes this phase reliably produces — a thing nothing reaches, and a check that duplicates a mechanism elsewhere.
+
 ## Kept under pressure, with the reason recorded
 
 - **LOOP-05, the "no tests recognised at all" case.** It looks like a special case and it is the difference between one useful failure and eighty-five false alarms. It is also the mitigation the sibling ADR names under Risks, so cutting it would leave that risk unanswered.
 - **LOOP-07, the per-task gate override.** Pressed on whether the config default alone would do. It would not: `lumem-verify` already distinguishes a narrow per-task claim from the broad closing one, and without the override a task can only ever cite the whole project gate — which makes every task pay the full cost and makes the narrow claim unexpressible.
 - **The configurable pattern set.** The purity cost is real and recorded in the ADR. It stays because a fixed set would make the check useless on the first language nobody anticipated, and the config key is the only thing standing between that and a project turning the check off.
+- **`no-lumem-project` in both `--phase tasks` and `--phase verdict`.** It looks like the duplicate mechanism this pass exists to cut, and it is not. Without the project root, `implementedCases` cannot run — and silently skipping it would make `unimplemented-case` pass vacuously, which is a false PASS, the exact failure this feature exists to close. One shared function, reported by both phases because both are wrong without it.
+- **`assets` in the fingerprint's include list.** Prompt text does not change what the tests assert, so it looked excludable under D7. It stays because it does: `IT-20` in 002 asserts the real asset tree, so editing a `SKILL.md` can genuinely break the suite.

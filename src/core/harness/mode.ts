@@ -114,6 +114,14 @@ export function resolveMode(
     }
   }
 
+  // Verification is graded rather than required (002 D12): the evidence gate runs
+  // everywhere, and an independent verifier runs only where the harness can spawn
+  // one. An absent capability reads as "no", so a descriptor that predates this
+  // degrades instead of claiming something it cannot do.
+  if (capabilities['agents.subagents'] !== true) {
+    mode.fallbacks.verification = 'evidence-only'
+  }
+
   if (capabilities['hooks.requiresTrust']) {
     mode.warnings.push(
       'this harness requires trusting hooks before they run; open /hooks to review and approve them',

@@ -29,6 +29,9 @@ const descriptor = (overrides: DescriptorOverrides = {}): AdapterDescriptor => (
     'hooks.requiresTrust': false,
     'hooks.stdoutInjection': true,
     'platform.windows': false,
+    // Default to a harness that can verify independently, so the cases below stay
+    // about hooks. The graded-verification cases set it explicitly.
+    'agents.subagents': true,
     ...overrides.capabilities,
   },
   eventMap: { inject: 'SessionStart' },
@@ -306,5 +309,35 @@ describe('resolveMode', () => {
       expect(desc).toEqual(snapshotDesc)
       expect(input).toEqual(snapshotInput)
     })
+  })
+})
+
+describe('resolveMode — graded verification (002 D12)', () => {
+  it('adds no fallback when the harness can spawn an independent agent', () => {
+    const mode = resolveMode(
+      descriptor({ capabilities: { 'agents.subagents': true } }),
+      detection(),
+    )
+    expect(mode.fallbacks.verification).toBeUndefined()
+    expect(mode.grade).toBe('full')
+  })
+
+  it('falls back to the evidence gate when it cannot', () => {
+    const mode = resolveMode(
+      descriptor({ capabilities: { 'agents.subagents': false } }),
+      detection(),
+    )
+    expect(mode.fallbacks.verification).toBe('evidence-only')
+    // A capability nobody has is not a broken harness: the grade is untouched.
+    expect(mode.grade).toBe('full')
+    expect(mode.missing).toEqual([])
+  })
+
+  it('reads an absent capability as no, rather than assuming it', () => {
+    const base = descriptor()
+    const capabilities = { ...base.capabilities }
+    delete capabilities['agents.subagents']
+    const mode = resolveMode({ ...base, capabilities }, detection())
+    expect(mode.fallbacks.verification).toBe('evidence-only')
   })
 })

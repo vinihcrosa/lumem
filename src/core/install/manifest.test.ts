@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { sha256 } from '../shared/fsx'
 import { type ManifestDescriptor, buildManifest } from './manifest'
@@ -192,5 +193,76 @@ describe('buildManifest', () => {
       'hook-bundle:lumem-runner',
       'hook-bundle:lumem-spec',
     ])
+  })
+})
+
+describe('buildManifest over the real asset tree (002 T9)', () => {
+  const realAssets = fileURLToPath(new URL('../../../assets', import.meta.url))
+
+  /** The real skill destinations: Claude Code uses .claude, Codex uses .agents. */
+  const claudeReal = descriptor('claude-code', {
+    skillsProject: '.claude/skills',
+    hooksPath: '.claude/settings.json',
+  })
+  const codexReal = descriptor('codex', {
+    skillsProject: '.agents/skills',
+    hooksPath: '.codex/hooks.json',
+  })
+
+  let dist: string
+
+  beforeEach(() => {
+    dist = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-manifest-real-'))
+    for (const bundle of ['lumem-hook.mjs', 'lumem-runner.mjs', 'lumem-spec.mjs']) {
+      write(path.join(dist, bundle), 'export const x = 1\n')
+    }
+  })
+
+  afterEach(() => {
+    fs.rmSync(dist, { recursive: true, force: true })
+  })
+
+  const build = (descriptors = [claudeReal, codexReal]) =>
+    buildManifest({ assetsDir: realAssets, distDir: dist, version: '0.2.0', descriptors })
+
+  it('IT-20 ships every spec skill, references included, to both harnesses', () => {
+    const skillIds = build()
+      .filter((a) => a.kind === 'skill')
+      .map((a) => a.id)
+
+    for (const harness of ['claude-code', 'codex']) {
+      for (const name of [
+        'lumem-spec-preflight',
+        'lumem-prd',
+        'lumem-tdd',
+        'lumem-tasks',
+        'lumem-execute-task',
+        'lumem-verify',
+      ]) {
+        expect(skillIds).toContain(`skill:${name}@${harness}`)
+      }
+      expect(skillIds).toContain(`skill:lumem-prd/references/prd-template.md@${harness}`)
+      expect(skillIds).toContain(`skill:lumem-tdd/references/tests-template.md@${harness}`)
+      expect(skillIds).toContain(`skill:lumem-tasks/references/task-template.md@${harness}`)
+    }
+  })
+
+  it('IT-20 puts each file at the destination its harness declares', () => {
+    const out = build()
+    const dest = (id: string): string | undefined => out.find((a) => a.id === id)?.dest.relPath
+
+    expect(dest('skill:lumem-verify@claude-code')).toBe('.claude/skills/lumem-verify/SKILL.md')
+    expect(dest('skill:lumem-prd/references/adr-template.md@claude-code')).toBe(
+      '.claude/skills/lumem-prd/references/adr-template.md',
+    )
+    expect(dest('skill:lumem-verify@codex')).toBe('.agents/skills/lumem-verify/SKILL.md')
+  })
+
+  it('IT-20 emits a skill artifact only for a directory holding a SKILL.md', () => {
+    const skills = build([claudeReal]).filter((a) => a.kind === 'skill')
+    // Every id names one of the shipped skills; `assets/agents` and
+    // `assets/harness` are siblings of `skills`, not skills.
+    expect(skills.every((a) => a.id.startsWith('skill:lumem-'))).toBe(true)
+    expect(skills.length).toBeGreaterThan(8)
   })
 })

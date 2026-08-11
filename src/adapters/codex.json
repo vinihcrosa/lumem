@@ -21,7 +21,8 @@
     "hooks.envProjectDir": false,
     "hooks.requiresTrust": true,
     "hooks.stdoutInjection": true,
-    "platform.windows": true
+    "platform.windows": true,
+    "agents.subagents": false
   },
   "eventMap": {
     "inject": "SessionStart",

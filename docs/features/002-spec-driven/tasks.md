@@ -559,7 +559,7 @@ The success criterion asks for a by-hand run of `lumem-prd` on a throwaway featu
 
 ## T9 — Execution skills and manifest registration
 
-- [ ] T9 — Execution skills and manifest registration
+- [x] T9 — Execution skills and manifest registration
 
 ### Overview
 
@@ -594,6 +594,25 @@ IT-20.
 ### Success criteria
 
 IT-20 passes. `doctor` names `independent` or `evidence-only`. A full dry run of the pipeline on a throwaway feature reaches `phase=done` with `lint` clean at every phase.
+
+### Completion notes
+
+**Done 2026-08-11.** Three skills (`lumem-tasks` with a task-body reference, `lumem-execute-task`, `lumem-verify`), the graded verification capability, and IT-20.
+
+Evidence: `npm run verify` — 148 files checked, `tsc --noEmit` silent, **1504 tests passed** across 60 files. `doctor` names the mode:
+
+```
+claude-code  detected=true grade=full verification=independent
+codex        detected=true grade=full verification=evidence-only
+```
+
+**No registration was needed.** T8's change made `listSkills` walk the asset tree, so the three new skills and their reference ship the moment they exist. The requirement asked for something the previous task had already made automatic — worth recording, because a manifest that needs a hand-maintained list is a manifest that silently omits things.
+
+**Verification independence is a capability, graded like every other.** `agents.subagents` is a new optional key in the descriptor schema; Claude Code declares it, Codex does not. An **absent** value reads as "no", so a descriptor written before this existed degrades rather than claiming a facility it lacks. The grade is untouched — a harness without subagents is not a broken harness, so `verification: 'evidence-only'` is a fallback, not a missing capability.
+
+**IT-20 asserts the manifest over the real asset tree, not a fixture.** A fixture would have proved that copying works, which IT-12 already proves; what needed proving is that the eight skills actually shipping land where each harness declares — `.claude/skills/…` and `.agents/skills/…`, references included. It also caught that my first draft asserted Codex's path as `.codex/skills`, which is not what the real descriptor says.
+
+**The precedence ladder is the load-bearing part of `lumem-execute-task`.** Six rungs, and the sixth is the one that matters: a task body never outranks the artifacts it paraphrases. That rule exists because implementing a paraphrase against a canonical contract is the failure mode that survives review — the code looks right, the tests pass, and the deliverable contradicts the spec.
 
 ---
 

@@ -52,6 +52,12 @@ export const adapterDescriptorSchema = z.object({
     'hooks.requiresTrust': z.boolean(),
     'hooks.stdoutInjection': z.boolean(),
     'platform.windows': z.boolean(),
+    /**
+     * The harness can run an independent agent that did not author the work.
+     * Optional: a descriptor written before verification was graded stays valid,
+     * and an absent value reads as "no", which degrades rather than assumes.
+     */
+    'agents.subagents': z.boolean().optional(),
   }),
   eventMap: z.object({
     inject: z.string().optional(),

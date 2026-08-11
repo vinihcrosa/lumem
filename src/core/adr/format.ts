@@ -10,7 +10,12 @@
  *
  * Parsing is tolerant: it never throws. Every complaint becomes a warning on the
  * returned ADR so `adr lint` can report it later with the file in hand.
+ *
+ * The frontmatter split itself lives in `core/shared/frontmatter`, shared with
+ * `core/spec` — one parser, two consumers.
  */
+
+import { FENCE, parseField, quoteIfNeeded, splitFrontmatter } from '../shared/frontmatter'
 
 export interface Adr {
   /** Filename, e.g. `2026-08-08-cookie-sessions.md`. The identifier. */
@@ -47,9 +52,6 @@ What this makes easy, and what it makes hard.
 const REQUIRED_FIELDS = ['title', 'date', 'area', 'summary'] as const
 const KNOWN_KEYS: readonly string[] = [...REQUIRED_FIELDS, 'supersedes']
 
-const FENCE = '---'
-/** The fence has to be the very first thing in the file. */
-const FRONTMATTER_OPEN = /^---[ \t]*\r?\n/
 /** Combining marks left behind by NFD decomposition. */
 const COMBINING_MARKS = /\p{M}/gu
 const NON_SLUG_CHARS = /[^a-z0-9]+/g
@@ -89,59 +91,6 @@ export function adrFilename(date: string, slug: string): string {
   return `${date}-${slug}.md`
 }
 
-type Split =
-  | { kind: 'ok'; lines: string[]; body: string }
-  /** No opening fence at the very start of the file. */
-  | { kind: 'none' }
-  /** An opening fence that is never closed. */
-  | { kind: 'unterminated' }
-
-/**
- * Peel the frontmatter block off the top of the file. The body is whatever
- * follows the closing fence's newline, kept byte-for-byte — trailing blank lines
- * included, since round-tripping through this module must not rewrite prose.
- */
-function splitFrontmatter(content: string): Split {
-  const open = FRONTMATTER_OPEN.exec(content)
-  if (open === null) return { kind: 'none' }
-
-  const lines: string[] = []
-  let cursor = open[0].length
-  while (cursor <= content.length) {
-    const newline = content.indexOf('\n', cursor)
-    const end = newline === -1 ? content.length : newline
-    const raw = content.slice(cursor, end)
-    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
-    if (line.trimEnd() === FENCE) {
-      return { kind: 'ok', lines, body: newline === -1 ? '' : content.slice(newline + 1) }
-    }
-    if (newline === -1) return { kind: 'unterminated' }
-    lines.push(line)
-    cursor = newline + 1
-  }
-  return { kind: 'unterminated' }
-}
-
-/** Strip exactly one matching pair of `'` or `"`, so a quoted value survives verbatim. */
-function unquote(value: string): string {
-  const first = value.charAt(0)
-  if (value.length >= 2 && (first === '"' || first === "'") && value.endsWith(first)) {
-    return value.slice(1, -1)
-  }
-  return value
-}
-
-/**
- * Quote a value only when reading it back would change it: leading or trailing
- * whitespace (the parser trims), or a value that is itself wrapped in a matching
- * quote pair (the parser would strip it). The wrapper is the other quote
- * character, so only one pair is ever removed.
- */
-function quoteIfNeeded(value: string): string {
-  if (value === unquote(value) && value === value.trim()) return value
-  return value.charAt(0) === "'" ? `"${value}"` : `'${value}'`
-}
-
 /** Keep hostile input from producing a megabyte-long warning. */
 function echo(text: string): string {
   return text.length <= MAX_WARNING_ECHO ? text : `${text.slice(0, MAX_WARNING_ECHO)}…`
@@ -172,18 +121,16 @@ export function parseAdr(id: string, content: string): Adr {
     const lineNo = index + 2
     if (line.trim() === '') continue
 
-    const colon = line.indexOf(':')
-    const key = colon === -1 ? '' : line.slice(0, colon).trim()
-    if (key === '') {
+    const field = parseField(line)
+    if (field === undefined) {
       warnings.push(`line ${lineNo}: skipped malformed frontmatter line (expected 'key: value')`)
       continue
     }
-    if (!KNOWN_KEYS.includes(key)) {
-      warnings.push(`line ${lineNo}: ignored unknown frontmatter key '${echo(key)}'`)
+    if (!KNOWN_KEYS.includes(field.key)) {
+      warnings.push(`line ${lineNo}: ignored unknown frontmatter key '${echo(field.key)}'`)
       continue
     }
-    // First colon only, so a value containing `:` survives intact.
-    fields.set(key, unquote(line.slice(colon + 1).trim()))
+    fields.set(field.key, field.value)
   }
 
   const adr: Adr = {

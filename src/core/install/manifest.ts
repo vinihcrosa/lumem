@@ -32,20 +32,68 @@ function hashFile(filePath: string): string {
   return sha256(fs.readFileSync(filePath))
 }
 
-function listSkills(skillsRoot: string): { name: string; srcPath: string }[] {
+interface SkillFile {
+  /** Skill directory name, e.g. `lumem-prd`. */
+  name: string
+  srcPath: string
+  /** Path inside the skill directory, POSIX-separated: `SKILL.md`, `references/x.md`. */
+  relPath: string
+}
+
+/** Every file under `dir`, recursively, as paths relative to `dir`. Sorted. */
+function walk(dir: string, prefix = ''): { srcPath: string; relPath: string }[] {
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const out: { srcPath: string; relPath: string }[] = []
+  for (const entry of entries) {
+    const srcPath = path.join(dir, entry.name)
+    const relPath = prefix === '' ? entry.name : path.posix.join(prefix, entry.name)
+    if (entry.isDirectory()) out.push(...walk(srcPath, relPath))
+    else out.push({ srcPath, relPath })
+  }
+  out.sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0))
+  return out
+}
+
+/**
+ * Every file of every skill under `skillsRoot`. A directory without a `SKILL.md`
+ * is not a skill and is skipped entirely.
+ *
+ * The whole tree ships, not only `SKILL.md`: a skill that keeps its templates and
+ * protocols in `references/` is useless when only its entry file is installed,
+ * and pushing detail out of the entry file is how a skill stays cheap to load.
+ */
+function listSkills(skillsRoot: string): SkillFile[] {
   let entries: fs.Dirent[]
   try {
     entries = fs.readdirSync(skillsRoot, { withFileTypes: true })
   } catch {
     return []
   }
-  const skills: { name: string; srcPath: string }[] = []
+  const skills: SkillFile[] = []
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
-    const srcPath = path.join(skillsRoot, entry.name, 'SKILL.md')
-    if (fs.existsSync(srcPath)) skills.push({ name: entry.name, srcPath })
+    const skillDir = path.join(skillsRoot, entry.name)
+    if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) continue
+    for (const file of walk(skillDir)) {
+      skills.push({ name: entry.name, srcPath: file.srcPath, relPath: file.relPath })
+    }
   }
-  skills.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  skills.sort((a, b) =>
+    a.name !== b.name
+      ? a.name < b.name
+        ? -1
+        : 1
+      : a.relPath < b.relPath
+        ? -1
+        : a.relPath > b.relPath
+          ? 1
+          : 0,
+  )
   return skills
 }
 
@@ -67,8 +115,12 @@ export function buildManifest(opts: {
 
   for (const d of descriptors) {
     for (const skill of skills) {
+      // The id keeps the file path for anything below the entry file, so a
+      // reference drifting is reported as its own artifact rather than as the
+      // skill wholesale.
+      const suffix = skill.relPath === 'SKILL.md' ? '' : `/${skill.relPath}`
       artifacts.push({
-        id: `skill:${skill.name}@${d.id}`,
+        id: `skill:${skill.name}${suffix}@${d.id}`,
         kind: 'skill',
         version,
         srcPath: skill.srcPath,
@@ -76,7 +128,7 @@ export function buildManifest(opts: {
         dest: {
           harness: d.id,
           scope: 'project',
-          relPath: path.posix.join(d.paths.skills.project, skill.name, 'SKILL.md'),
+          relPath: path.posix.join(d.paths.skills.project, skill.name, skill.relPath),
         },
       })
     }

@@ -483,7 +483,7 @@ feature: 002-spec-driven
 
 ## T8 — Authoring skills: preflight, prd, tdd
 
-- [ ] T8 — Authoring skills
+- [x] T8 — Authoring skills
 
 ### Overview
 
@@ -519,6 +519,41 @@ None. Prompt content is reviewed, not asserted — a test that greps a `SKILL.md
 ### Success criteria
 
 The three skills exist, each under 120 lines with detail pushed to `references/`. Running `lumem-prd` by hand on a throwaway feature produces `context.md`, `prd.md` and at least one ADR, and `lint --phase prd` exits 0 on the result.
+
+### Completion notes
+
+**Done 2026-08-11.** Three skills, 247 lines of entry files and 436 of references:
+
+```
+ 74  lumem-spec-preflight/SKILL.md
+ 89  lumem-prd/SKILL.md            + question-protocol 68, prd-template 89, adr-template 82
+ 84  lumem-tdd/SKILL.md            + tdd-template 112, tests-template 85
+```
+
+Evidence: `npm run verify` — 148 files checked, `tsc --noEmit` silent, **1498 tests passed**. Installed into a throwaway project and removed again:
+
+```
+.claude/skills/lumem-prd/SKILL.md
+.claude/skills/lumem-prd/references/adr-template.md
+.claude/skills/lumem-prd/references/prd-template.md
+.claude/skills/lumem-prd/references/question-protocol.md
+.claude/skills/lumem-spec-preflight/SKILL.md
+.claude/skills/lumem-tdd/SKILL.md
+.claude/skills/lumem-tdd/references/tdd-template.md
+.claude/skills/lumem-tdd/references/tests-template.md
+
+$ lumem uninstall   → 0 skill files left, .claude removed entirely
+```
+
+**The installer only shipped `SKILL.md`.** A skill whose detail lives in `references/` would have installed as an entry file pointing at files that were never copied — silently, since nothing asserted otherwise. `listSkills` now walks the whole skill directory and emits one artifact per file, with the path in the artifact id (`skill:lumem-prd/references/prd-template.md@claude-code`) so a drifting reference is reported as itself rather than as the skill wholesale. Existing skills have only an entry file, so all 256 installer assertions passed unchanged.
+
+This was not in T8's declared files and is the largest thing this task did. It is also the reason the design's "detail pushed to `references/`" was achievable at all — without it the choice was one long entry file or a broken skill.
+
+**Where the skills say more than the design did.** Each one carries the evidence behind its rules, not just the rules: the question protocol quotes 001's three-of-thirteen and 002's two-of-ten, and `lumem-tdd` states the prose-versus-signatures finding as the reason for its gate. A rule with its evidence attached survives an argument; a rule without it gets negotiated away.
+
+### Follow-up, not done here
+
+The success criterion asks for a by-hand run of `lumem-prd` on a throwaway feature. The honest test of that is a real feature with a real author answering real questions, which is 003's first minutes — not something to simulate here.
 
 ---
 

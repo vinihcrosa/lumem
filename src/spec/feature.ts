@@ -77,6 +77,14 @@ export interface SpecFeature {
   tasks: TaskRecord[]
   /** Every case id declared in `tests.md`, deduplicated, in declaration order. */
   testIds: string[]
+  /**
+   * The verification verdict from `tasks.md`, absent until one is recorded.
+   *
+   * A verdict is a claim about the tree, so it lives beside the tasks it covers
+   * rather than in a file of its own — the doubt about that is on the record in
+   * TDD §14.
+   */
+  verdict?: 'pass' | 'fail'
   /** Tolerant-parse complaints. Never thrown. */
   warnings: string[]
 }
@@ -120,6 +128,8 @@ const TASK_CHECKBOX = /^-[ \t]*\[([ xX])\][ \t]*(?:\*\*)?(T\d+)\b/
 const TASK_ROW = /^\|[ \t]*(T\d+)[ \t]*\|/
 /** `—`, `-`, or nothing: this task depends on nothing. */
 const NO_DEPENDENCY = /^(?:—|–|-|)$/
+/** The verification verdict line in `tasks.md`: `- **Result:** PASS`. */
+const VERDICT_RESULT = /^-[ \t]*\*\*Result:\*\*[ \t]*(PASS|FAIL)\b/i
 
 /** Every flag false: a feature before its first artifact, and the parse's starting point. */
 function noArtifacts(): SpecArtifactFlags {
@@ -304,6 +314,16 @@ function readTasks(text: string, feature: SpecFeature): TaskRecord[] {
 
   for (const line of lines) {
     const trimmed = line.trim()
+
+    const verdictMatch = VERDICT_RESULT.exec(trimmed)
+    if (verdictMatch?.[1] !== undefined) {
+      const result = verdictMatch[1].toUpperCase() === 'PASS' ? 'pass' : 'fail'
+      if (feature.verdict !== undefined && feature.verdict !== result) {
+        feature.warnings.push(`${FILES.tasks}: two verdicts recorded and they disagree`)
+      }
+      feature.verdict = result
+      continue
+    }
 
     if (columns === undefined && trimmed.startsWith('|')) {
       const header = cells(trimmed).map((cell) => cell.toLowerCase())

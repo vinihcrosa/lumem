@@ -103,7 +103,7 @@ Run against this feature's own directory, which is the check no unit test can ma
 
 ## T2 — Phase derivation
 
-- [ ] T2 — Phase derivation
+- [x] T2 — Phase derivation
 
 ### Overview
 
@@ -135,6 +135,27 @@ UT-16…UT-30.
 ### Success criteria
 
 Every case passes. Purity holds — the module imports only `./feature` types.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/next.ts` and `src/spec/next.test.ts`; 22 assertions covering UT-16…UT-30 and UT-65.
+
+Evidence: `biome check .` — 141 files, no fixes applied. `tsc --noEmit` — silent. `vitest run` — 55 files, **1417 tests passed**, 0 failed.
+
+Derived against both real feature directories:
+
+```
+001-docs-and-adr-contract  phase=scope action=settle-size   (tier=-, warnings=1)
+002-spec-driven            phase=execute action=execute-task target=T2   (tier=full, warnings=0)
+```
+
+001 lands on `settle-size` because it predates the pipeline and records no tier — correct, and the reason `tdd.md` §1 says it is not retrofitted.
+
+**The verdict had no on-disk form.** §5.4 read "verdict recorded" and nothing said what that looked like or where it lived. Defined as a `## Verdict` section in `tasks.md` with `- **Result:** PASS|FAIL`, parsed case-insensitively, two disagreeing verdicts warning rather than resolving silently. `SpecFeature` gained `verdict?: 'pass' | 'fail'`, and §8.1 of the TDD now carries the format.
+
+**`FAIL` is not terminal.** The table had rows for "no verdict" and "verdict passing" and nothing between them, which would have made a recorded failure read as done. A `FAIL` row now returns to `verify` until the tree is fixed.
+
+`biome` rejects the `delete` operator, so the test helper takes `tier: null` to mean "no tier recorded" instead of deleting the field — which also names the state under test rather than mutating its way into it.
 
 ---
 

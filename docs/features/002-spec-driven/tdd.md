@@ -215,6 +215,7 @@ export interface SpecFeature {
   questions: QuestionRecord[]
   tasks: TaskRecord[]
   testIds: string[]               // every id declared in tests.md
+  verdict?: 'pass' | 'fail'       // the recorded verification result, absent until one exists
   warnings: string[]              // tolerant-parse complaints, never thrown
 }
 
@@ -265,7 +266,8 @@ Filesystem truth, in order. First match wins.
 | tier = `full` and `tasks.md` absent | `phase=tasks action=write-tasks` |
 | a task is unchecked and its `dependsOn` are all done | `phase=execute action=execute-task target=<Tid>` |
 | every task done, no verdict recorded | `phase=verify action=verify` |
-| verdict recorded and passing | `phase=done action=done` |
+| a verdict of `FAIL` is recorded | `phase=verify action=verify` |
+| a verdict of `PASS` is recorded | `phase=done action=done` |
 
 ---
 
@@ -330,6 +332,21 @@ The floor, everywhere: **no completion claim without fresh evidence, and the ver
 | no | `evidence-only` | the author produces and shows evidence against each assigned case |
 
 `doctor` names the mode, so the difference is never silent. Deferred: the discrimination sensor (D12) — `tests.md` must be shaped so it can be added without a rewrite.
+
+### 8.1 The verdict on disk
+
+A verdict is a claim about the tree, so it lives beside the tasks it covers. `tasks.md` gains a closing section:
+
+```markdown
+## Verdict
+
+- **Result:** PASS
+- **Evidence:** npm run verify — 54 files, 1395 tests, 0 failed
+```
+
+`PASS` and `FAIL` are the only recognised results, case-insensitively. Two disagreeing verdicts in one file is a warning, and the last one read wins — a contradiction should be visible, not silently resolved. `FAIL` is not terminal: the derivation returns to `verify` until the tree is fixed.
+
+The form was undefined until T2 needed it. §14 keeps the doubt about the location on the record.
 
 ---
 

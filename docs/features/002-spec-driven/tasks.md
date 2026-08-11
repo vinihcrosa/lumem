@@ -161,7 +161,7 @@ Derived against both real feature directories:
 
 ## T3 — The three phase lints
 
-- [ ] T3 — The three phase lints
+- [x] T3 — The three phase lints
 
 ### Overview
 
@@ -195,6 +195,32 @@ UT-31…UT-54.
 ### Success criteria
 
 Every case passes. No check exists that the TDD does not list. Findings reuse the existing shape.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/lint.ts` plus three test files; 38 assertions covering UT-31…UT-54.
+
+Evidence: `biome check .` — 145 files, no fixes applied. `tsc --noEmit` — silent. `vitest run` — 58 files, **1456 tests passed**, 0 failed.
+
+Run against 002's own artifacts, which is the calibration test no fixture can make:
+
+```
+--phase prd:   0 findings → exit 0
+--phase tdd:   0 findings → exit 0
+--phase tasks: 1 finding (0 gates) → exit 3
+  [info] task-without-tests: T8 verifies nothing: no case is assigned to it
+```
+
+The only finding is the one this file already predicted and accepted.
+
+**Requirement 1 was wrong and was not followed.** It said to reuse `LintFinding` from `core/memory/lint.ts`. That type carries `factIds` and a memory-specific `kind` union, so reusing it would force memory to know about spec kinds. `core/adr` had already settled the right pattern — its own `AdrFinding` with the same *shape*: kind, `gate | info` severity, ids, message, gates sorted first. `SpecFinding` follows `AdrFinding`. The requirement's intent — one finding shape across memory, ADRs and specs — holds at the shape level, which is the level that matters to a renderer.
+
+**A second vocabulary was needed.** §5.2 declares `lintSpec(f, phase: SpecPhase)` while §5.3 takes `--phase prd|tdd|tasks`. Only three phases have gates, and `context` or `done` can never be linted, so `SpecLintPhase` is its own three-value type rather than an overload of the pipeline's nine.
+
+**Two defects, both found by the artifacts rather than by the fixtures:**
+
+- **The vague-adverb rule was scoped to the risky dimensions, and should not have been.** UT-37's own fixture — "WHILE two runs are in flight the system SHALL serialize them appropriately" — never says "concurrency", so a keyword list could not see it. The rule split in two: a vague outcome is unfalsifiable in *any* dimension and is checked everywhere; a missing pattern keyword is only a defect where prose hides a condition, so that half stays scoped. Simpler than extending the keyword list, and it stops being a whack-a-mole.
+- **The pattern-keyword rule flagged lumem's own PRD, wrongly.** SPEC-16 — "an acceptance criterion covering a failure path, a state transition, or concurrency SHALL name a concrete outcome" — is a requirement *about* risky criteria, always-on, and correctly carries no keyword. The rule now also requires a **condition stated in prose** before it fires, which is the actual defect D15 targets. Covered by UT-38.
 
 ---
 

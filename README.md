@@ -37,7 +37,9 @@ Three stages. Only the last one costs tokens.
 
 **1. Injection — session start.** A `SessionStart` hook reads your memory files and prints a block into the agent's context. File reads only, no model call. Hard budget (4 KB by default) so memory can never crowd out your actual work.
 
-**2. Capture — during the session.** `UserPromptSubmit` and `PostToolUse` hooks append raw signals to a session journal: files touched, a command that failed and later passed, a prompt that looks like a correction. Appends only — deterministic, no model call, p95 under 40 ms.
+**2. Capture — during the session.** `UserPromptSubmit`, `PostToolUse` and `PostToolUseFailure` hooks append raw signals to a session journal: files touched, a command that failed and later passed, a prompt that looks like a correction. Appends only — deterministic, no model call, p95 under 40 ms.
+
+The failure event matters more than it looks: Claude Code fires `PostToolUse` only when a call *succeeds*, so without subscribing to its counterpart a tool that never sees a failure can never notice a recovery — and a command that failed and then passed is the richest thing a session produces.
 
 **3. Consolidation — session end, gated.** A `SessionEnd` hook spawns a detached process that asks a cheap model to turn the raw journal into durable facts. It only runs when the session was substantial: at least 5 signals, at least 3 minutes long, at least 6 hours since the last run, and no consolidation already in flight. A 30-second session never triggers a model call.
 
@@ -96,8 +98,32 @@ Every file has a soft limit. Past it, the next consolidation compacts: active ri
 | `lumem memory list \| show \| search` | Read memory |
 | `lumem memory add \| edit \| forget` | Write memory by hand |
 | `lumem memory consolidate` | Run consolidation now |
+| `lumem memory lint` | Flag contradictions, stale facts and dead references |
+| `lumem adr new` | Record an architectural decision under `docs/adr/` |
+| `lumem adr lint` | Check the supersedence chain for broken or circular links |
 
 Every writing command takes `--dry-run` and shows the diff without touching anything. Every reading command takes `--json`.
+
+---
+
+## Decisions
+
+Memory holds what is true now. **Why it is that way belongs in `docs/adr/`** — one Markdown file per architectural decision, navigated on demand rather than loaded into every session.
+
+```bash
+lumem adr new "Session cookies over JWT" --area auth \
+  --summary "Auth uses session cookies because revocation must be immediate."
+```
+
+The rules are deliberately few:
+
+- **An ADR is never deleted.** A decision that stops being current gets superseded, not erased — a record of an act cannot un-happen.
+- **The newest in a chain wins.** A new ADR names the one it replaces in `supersedes:`; status is derived from that, so no tool ever edits a file after it is written.
+- **The frontmatter is the index.** Title, date, area and a one-line summary let an agent judge relevance without opening the body. There is no generated index to drift.
+
+`lumem adr lint` guards the one property everything rests on — the chain being readable. A `supersedes:` pointing at nothing, or a cycle, exits 3. Everything else it finds is informational.
+
+Once ADRs exist, one line in the injected block tells the agent where they live. Whether that is enough — whether an agent reliably reads a decision it was merely pointed at — is the open question this design is waiting on real use to answer.
 
 ---
 

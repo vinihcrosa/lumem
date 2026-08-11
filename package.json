@@ -1,6 +1,6 @@
 {
   "name": "@vinihcrosa/lumem",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Memory and self-learning layer for coding agents (Claude Code, Codex)",
   "keywords": [
     "memory",

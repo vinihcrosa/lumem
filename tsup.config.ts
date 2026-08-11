@@ -21,6 +21,17 @@ export default defineConfig([
     outExtension: () => ({ js: '.mjs' }),
   },
   {
+    // spec entrypoint: same contract as the hook bundle — one self-contained
+    // file, zero external imports, copied into the target repo rather than
+    // depending on the CLI being installed at a matching version (002 D8/D13).
+    entry: { 'lumem-spec': 'src/spec/main.ts' },
+    format: 'esm',
+    platform: 'node',
+    target: 'node20',
+    noExternal: [/.*/],
+    outExtension: () => ({ js: '.mjs' }),
+  },
+  {
     entry: { 'lumem-runner': 'src/runner/main.ts' },
     format: 'esm',
     platform: 'node',

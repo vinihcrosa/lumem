@@ -226,7 +226,7 @@ The only finding is the one this file already predicted and accepted.
 
 ## T4 — Bundle entry, CLI surface, build
 
-- [ ] T4 — Bundle entry, CLI surface, build
+- [x] T4 — Bundle entry, CLI surface, build
 
 ### Overview
 
@@ -260,6 +260,37 @@ UT-55, IT-01…IT-11.
 ### Success criteria
 
 Every case passes. `dist/lumem-spec.mjs` runs under bare `node` with no `lumem` on `PATH` (IT-09).
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/main.ts`, `src/spec/main.test.ts`, `test/spec-bundle.test.ts`, and a fourth `tsup` entry; 19 assertions covering UT-55 and IT-01…IT-11.
+
+Evidence: `npm run verify` — `biome check .` 148 files no fixes, `tsc --noEmit` silent, **1475 tests passed** across 60 files, four bundles built. `dist/lumem-spec.mjs` is 26 KB.
+
+Driven as a real process against the real features:
+
+```
+$ node dist/lumem-spec.mjs next docs/features/002-spec-driven
+phase=execute action=execute-task target=T4      exit=0
+
+$ node dist/lumem-spec.mjs lint docs/features/002-spec-driven --phase tasks
+info: task-without-tests: T8 verifies nothing: no case is assigned to it
+exit=3
+
+$ node dist/lumem-spec.mjs lint docs/features/002-spec-driven --phase prd
+exit=0
+
+$ node dist/lumem-spec.mjs next docs/features/001-docs-and-adr-contract
+phase=scope action=settle-size                   exit=0
+```
+
+**"Unreadable directory" needed a definition.** Invariant 8 says `next` exits 0 on anything except an unreadable directory, while UT-16 says an absent directory yields `create-context` — and `readFeature` cannot tell "absent" from "unreadable". Resolved by splitting them at the CLI: a path that **does not exist** is a feature nobody has started, so `create-context` and exit 0; a path that **exists and is not a readable directory** is the one input neither command can work with, so exit 1 naming the path. Advice fails open; a genuine I/O error does not.
+
+**An info-only finding still exits 3.** `--phase tasks` returns exit 3 for T8's `task-without-tests`, which is severity info. That follows `adr lint` and `memory lint`, where any finding exits 3, and it is deliberate: the severity tells you whether to act, the exit code tells you something was said. A caller who wants gates only can read `--json`.
+
+`--help` exits 0; an empty argv exits 1 with the same usage text, since running the bundle with no command is a mistake rather than a question.
+
+IT-11 lives in `test/spec-bundle.test.ts` rather than `test/packaging.test.ts` as `tests.md` suggested. The tarball assertions belong to T5, and splitting one bundle's cases across two files for no reason would have made both harder to read.
 
 ---
 

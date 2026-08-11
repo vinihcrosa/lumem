@@ -1,6 +1,6 @@
 # PRD — 002 Spec-driven core
 
-**Status:** draft, awaiting review
+**Status:** implemented — verdict PASS, see `tasks.md`
 **Reads with:** `context.md` (why this slice), `decisions.md` (D1–D18), `questions.md` (rounds 1–2)
 
 This states what the spec-driven core must do and for whom. How it does it is `tdd.md`. Written after the design, because the requirements phase produced `context.md`, `decisions.md` and `questions.md` instead of this file — 002 is the slice that defines what a PRD is, so it had none to write against. It exists now because the derivation table gained a `write-prd` row during T1 and this feature is the first thing that row detects.

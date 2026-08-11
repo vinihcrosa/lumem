@@ -1,6 +1,6 @@
 # TDD — 002 Spec-driven core
 
-**Status:** draft, awaiting review
+**Status:** implemented — verdict PASS, see `tasks.md`
 **Depends on:** `context.md`, `decisions.md` (D1–D17 plus `Cut, and why`), `questions.md` (rounds 1–2, stopped)
 
 ## Summary

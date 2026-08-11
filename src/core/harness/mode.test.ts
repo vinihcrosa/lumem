@@ -335,8 +335,9 @@ describe('resolveMode — graded verification (002 D12)', () => {
 
   it('reads an absent capability as no, rather than assuming it', () => {
     const base = descriptor()
-    const capabilities = { ...base.capabilities }
-    delete capabilities['agents.subagents']
+    // Rebuilt without the key rather than deleted from a copy: `delete` is
+    // banned by the linter, and naming the absent key is clearer anyway.
+    const { 'agents.subagents': _omitted, ...capabilities } = base.capabilities
     const mode = resolveMode({ ...base, capabilities }, detection())
     expect(mode.fallbacks.verification).toBe('evidence-only')
   })

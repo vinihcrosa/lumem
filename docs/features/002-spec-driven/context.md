@@ -1,6 +1,6 @@
 # 002 — Spec-driven core
 
-**Status:** in discussion
+**Status:** shipped 2026-08-11
 **Started:** 2026-08-11
 
 ## What this is

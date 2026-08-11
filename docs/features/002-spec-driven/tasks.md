@@ -1,7 +1,7 @@
 # Tasks — 002 Spec-driven core
 
 **Derived from:** `tdd.md`, `tests.md`
-**Status:** draft, awaiting review
+**Status:** complete — see the Verdict at the end, and `retrospective.md`
 
 Nine tasks. Sized by `tdd.md` §3.4: fewer and larger, split only at a contract boundary, a disjoint-file boundary, or a domain boundary. Every case id in `tests.md` is assigned to exactly one task.
 
@@ -622,3 +622,12 @@ codex        detected=true grade=full verification=evidence-only
 - No orphans, no duplicates. 85 of 85 assigned — verified by `readFeature` against this directory, not by hand.
 - No cycles: T1 → {T2, T3} → T4 → {T5, T8 → T9}; T6 and T7 have no edges.
 - T8 carries no cases, by the decision recorded in its Tests section.
+
+---
+
+## Verdict
+
+- **Result:** PASS
+- **Evidence:** `npm run verify` — biome 148 files no fixes, `tsc --noEmit` silent, 1504 tests passed across 60 files, four bundles built. `sh scripts/verify-pack.sh` → PASS, the tarball is npx-ready. `npm run bench:hook` → inject p95 28.4 ms against a 150 ms budget. `node dist/cli.js adr lint` → no findings, 1 ADR checked.
+- **Gates, run through the bundle this feature ships:** `lint --phase prd` exit 0 · `lint --phase tdd` exit 0 · `lint --phase tasks` exit 3, one info finding (T8 owns no cases, predicted and accepted in its body).
+- **Scope check:** every requirement in `prd.md` is answered by a section of `tdd.md`; every case in `tests.md` is owned by exactly one task and every task is done.

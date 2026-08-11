@@ -1,7 +1,7 @@
 # Test contract — 002 Spec-driven core
 
 **Derived from:** `tdd.md` §1–§10
-**Status:** draft, awaiting review
+**Status:** implemented — verdict PASS, see `tasks.md`
 
 The canonical numbered case list. `tasks.md` assigns every id below to exactly one task; `lint --phase tasks` fails on an orphan or a duplicate.
 

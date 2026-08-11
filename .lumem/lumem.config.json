@@ -42,7 +42,7 @@
   "heuristics": {
     "correctionMarkers": [
       "na verdade",
-      "não, faz",
+      "n\u00e3o, faz",
       "nao, faz",
       "sempre que",
       "nunca",
@@ -50,10 +50,13 @@
       "no, do",
       "always",
       "never",
-      "não use",
+      "n\u00e3o use",
       "nao use",
       "don't use",
       "do not use"
     ]
+  },
+  "verification": {
+    "command": "npm run verify"
   }
 }

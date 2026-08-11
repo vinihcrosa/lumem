@@ -42,7 +42,7 @@ T1 and T4 are roots and can run in either order. The critical path is T1 → T2 
 
 ## T1 — The `verification` config block
 
-- [ ] T1 — The `verification` config block
+- [x] T1 — The `verification` config block
 - **Gate:** vitest run src/core/config
 
 ### Overview
@@ -76,6 +76,27 @@ UT-61…UT-65. UT-64 and UT-65 are the ones that matter: `writeConfig` normalise
 ### Success criteria
 
 Every case passes. `readConfig` on this repo's existing config still succeeds before the `command` is added, and after.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/core/verification.ts` (new), `src/core/config.ts`, `src/core/config.test.ts`, and this repo's `.lumem/lumem.config.json`; 6 assertions covering UT-61…UT-65.
+
+Evidence: `npm run verify` — 149 files checked, `tsc --noEmit` silent, **1510 tests passed** across 60 files. The real config read back through the real parser:
+
+```
+error   : none
+command : npm run verify
+suffixes: [ '.test.ts' ]
+excl doc: true
+```
+
+**The type does not live where the design said.** `tdd.md` §1 puts `verification` in `core/config.ts`. It is in **`src/core/verification.ts`**, because `core/config.ts` already follows a rule this repo states out loud — *every default comes from the module that owns the concept* (budgets from `memory/limits`, gating from `consolidate/gate`). Putting it in `spec/` instead would have inverted the layering, since config cannot depend on spec.
+
+**A pre-existing annotation was wrong, and a default exposed it.** `lumemConfigSchema` was typed `z.ZodType<LumemConfig>`, which pins the input type equal to the output type. That held only while no field had a default; the moment `fingerprintInclude` got one, a valid *input* stopped being shaped like a `LumemConfig` and `tsc` refused the whole schema. Widened to `z.ZodType<LumemConfig, z.ZodTypeDef, unknown>`, which is what it always was — the thing parses JSON off disk.
+
+**`defaultConfig` deliberately writes no `verification` block.** A new project has no gate, so every verdict in it is `unverifiable` until someone names a command. Inventing `npm run verify` as a default would have been the same class of assumption this feature exists to remove, and UT-65 asserts the absence.
+
+The block for this repository was added by hand rather than by a migration: one key in one file, and a migration path for an optional field nobody has yet is machinery with no user.
 
 ---
 

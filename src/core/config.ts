@@ -5,6 +5,7 @@ import { DEFAULT_CORRECTION_MARKERS } from './capture/heuristics'
 import { DEFAULT_GATE_CONFIG, type GateConfig } from './consolidate/gate'
 import { DEFAULT_FILE_BUDGETS, type FileBudgets } from './memory/limits'
 import { atomicWrite } from './shared/fsx'
+import { DEFAULT_VERIFICATION, type VerificationConfig } from './verification'
 
 /** How one harness is configured in this project. */
 export interface HarnessConfig {
@@ -36,6 +37,12 @@ export interface LumemConfig {
   }
   harnesses: Record<string, HarnessConfig>
   heuristics: { correctionMarkers: string[] }
+  /**
+   * Optional on purpose: a config written before verification existed has to keep
+   * parsing, and every object here is `.strict()`, so an unknown key is an error
+   * rather than something ignored (003 T1, requirement 1).
+   */
+  verification?: VerificationConfig
 }
 
 export const CONFIG_FILE_NAME = 'lumem.config.json'
@@ -58,7 +65,12 @@ const harnessConfigSchema = z
   })
   .strict()
 
-export const lumemConfigSchema: z.ZodType<LumemConfig> = z
+/**
+ * Input is `unknown` on purpose: this parses JSON off disk, and the list fields
+ * inside `verification` carry defaults, so a valid input is not shaped like a
+ * `LumemConfig` until after parsing. Pinning both sides made a default impossible.
+ */
+export const lumemConfigSchema: z.ZodType<LumemConfig, z.ZodTypeDef, unknown> = z
   .object({
     version: z.literal(1),
     budgets: z
@@ -90,6 +102,24 @@ export const lumemConfigSchema: z.ZodType<LumemConfig> = z
       .strict(),
     harnesses: z.record(harnessConfigSchema),
     heuristics: z.object({ correctionMarkers: z.array(z.string()) }).strict(),
+    verification: z
+      .object({
+        command: z.string().min(1).optional(),
+        // Each list defaults independently, so a block naming only `command`
+        // still comes back complete (UT-62). A configured list REPLACES the
+        // default: merging would make a default impossible to remove.
+        fingerprintInclude: z
+          .array(z.string().min(1))
+          .default([...DEFAULT_VERIFICATION.fingerprintInclude]),
+        fingerprintExclude: z
+          .array(z.string().min(1))
+          .default([...DEFAULT_VERIFICATION.fingerprintExclude]),
+        testInclude: z.array(z.string().min(1)).default([...DEFAULT_VERIFICATION.testInclude]),
+        testSuffixes: z.array(z.string().min(1)).default([...DEFAULT_VERIFICATION.testSuffixes]),
+        testPatterns: z.array(z.string().min(1)).default([...DEFAULT_VERIFICATION.testPatterns]),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
 
@@ -170,7 +200,7 @@ export function writeConfig(lumemDir: string, config: LumemConfig): void {
 }
 
 function normalize(config: LumemConfig): unknown {
-  const { budgets, gate, consolidation, heuristics } = config
+  const { budgets, gate, consolidation, heuristics, verification } = config
   return {
     version: config.version,
     budgets: {
@@ -207,6 +237,20 @@ function normalize(config: LumemConfig): unknown {
         ]),
     ),
     heuristics: { correctionMarkers: [...heuristics.correctionMarkers] },
+    // Omitted entirely when absent — never `null`, never an empty object, so a
+    // config that never used verification round-trips byte-identically (UT-65).
+    ...(verification !== undefined
+      ? {
+          verification: {
+            ...(verification.command !== undefined ? { command: verification.command } : {}),
+            fingerprintInclude: [...verification.fingerprintInclude],
+            fingerprintExclude: [...verification.fingerprintExclude],
+            testInclude: [...verification.testInclude],
+            testSuffixes: [...verification.testSuffixes],
+            testPatterns: [...verification.testPatterns],
+          },
+        }
+      : {}),
   }
 }
 

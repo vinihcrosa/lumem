@@ -13,6 +13,7 @@ import {
 } from './config'
 import { DEFAULT_GATE_CONFIG } from './consolidate/gate'
 import { DEFAULT_FILE_BUDGETS } from './memory/limits'
+import { DEFAULT_VERIFICATION, defaultVerification } from './verification'
 
 function tmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-config-'))
@@ -191,5 +192,88 @@ describe('readConfig failures', () => {
     const { config, error } = readConfig(dir)
     expect(config).toBeUndefined()
     expect(error).toBeDefined()
+  })
+})
+
+describe('the verification block (003 T1)', () => {
+  it('UT-61 parses a config that has no verification block at all', () => {
+    const dir = tmpDir()
+    const config = defaultConfig(HARNESSES)
+    writeConfig(dir, config)
+
+    const { config: read, error } = readConfig(dir)
+
+    expect(error).toBeUndefined()
+    expect(read?.verification).toBeUndefined()
+    // Absence is not a hole to be filled here: a caller wanting settings asks
+    // `defaultVerification()`, so nothing has to guess what the author meant.
+    expect(defaultVerification().testSuffixes).toEqual(['.test.ts'])
+  })
+
+  it('UT-62 fills the list fields when only a command is given', () => {
+    const raw = { ...defaultConfig(HARNESSES), verification: { command: 'npm run verify' } }
+    const parsed = lumemConfigSchema.safeParse(raw)
+
+    expect(parsed.success).toBe(true)
+    const verification = parsed.success ? parsed.data.verification : undefined
+    expect(verification?.command).toBe('npm run verify')
+    expect(verification?.fingerprintInclude).toEqual(DEFAULT_VERIFICATION.fingerprintInclude)
+    expect(verification?.fingerprintExclude).toContain('docs')
+    expect(verification?.testPatterns).toEqual(DEFAULT_VERIFICATION.testPatterns)
+  })
+
+  it('UT-62 lets a configured list replace the default rather than extend it', () => {
+    const raw = {
+      ...defaultConfig(HARNESSES),
+      verification: { testSuffixes: ['_test.go'] },
+    }
+    const parsed = lumemConfigSchema.safeParse(raw)
+
+    expect(parsed.success).toBe(true)
+    const verification = parsed.success ? parsed.data.verification : undefined
+    expect(verification?.testSuffixes).toEqual(['_test.go'])
+    expect(verification?.testSuffixes).not.toContain('.test.ts')
+  })
+
+  it('UT-63 rejects an unknown key inside verification, naming it', () => {
+    const raw = {
+      ...defaultConfig(HARNESSES),
+      verification: { command: 'x', nonsense: true },
+    }
+    const parsed = lumemConfigSchema.safeParse(raw)
+
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) {
+      expect(JSON.stringify(parsed.error.issues)).toContain('nonsense')
+    }
+  })
+
+  it('UT-64 round-trips a verification block byte-identically', () => {
+    const dir = tmpDir()
+    const config: LumemConfig = {
+      ...defaultConfig(HARNESSES),
+      verification: { ...defaultVerification(), command: 'npm run verify' },
+    }
+    writeConfig(dir, config)
+    const first = fs.readFileSync(configFile(dir), 'utf8')
+
+    const { config: read, error } = readConfig(dir)
+    expect(error).toBeUndefined()
+    expect(read?.verification?.command).toBe('npm run verify')
+
+    writeConfig(dir, read as LumemConfig)
+    expect(fs.readFileSync(configFile(dir), 'utf8')).toBe(first)
+  })
+
+  it('UT-65 omits the key entirely when the block is absent', () => {
+    const dir = tmpDir()
+    writeConfig(dir, defaultConfig(HARNESSES))
+    const text = fs.readFileSync(configFile(dir), 'utf8')
+
+    expect(text).not.toContain('verification')
+    expect(text).not.toContain('null')
+    // defaultConfig must not invent a command: a project with no gate is
+    // unverifiable, and assuming otherwise is the failure 003 exists to close.
+    expect(defaultConfig(HARNESSES).verification).toBeUndefined()
   })
 })

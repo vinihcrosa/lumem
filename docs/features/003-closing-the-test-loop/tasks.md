@@ -102,7 +102,7 @@ The block for this repository was added by hand rather than by a migration: one 
 
 ## T2 — Tree fingerprint
 
-- [ ] T2 — Tree fingerprint
+- [x] T2 — Tree fingerprint
 - **Gate:** vitest run src/spec/fingerprint
 
 ### Overview
@@ -136,6 +136,29 @@ UT-05…UT-14. UT-13 and UT-14 are the pair that matters: one pins that order do
 ### Success criteria
 
 Every case passes. Hashing this repository twice produces the same value, and touching one byte under `src/` changes it while touching `docs/` does not.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/fingerprint.ts`, `src/spec/fingerprint.test.ts`; 14 assertions covering UT-05…UT-14.
+
+Evidence: `npm run verify` — 149 files checked, `tsc --noEmit` silent, **1524 tests passed**. Against this repository:
+
+```
+hash    : b0de76df6f1a04cacabaa433c34c3f441fee3b15e3d1d16f6be116476037d38d
+files   : 138 | incomplete: false
+stable  : true
+docs op : true
+```
+
+138 files, not the ~1,300 the design guessed — `node_modules` and `dist` are the bulk of a repo, and excluding them leaves a fingerprint cheap enough that the cost paragraph in `tdd.md` §3 overstates it by an order of magnitude.
+
+**Exclusion needed two forms, and the case found it.** The design called these prefixes, and a prefix is anchored at the project root — so `node_modules` excluded the top-level one and `src/node_modules` walked straight through. UT-09 caught it on the first run.
+
+Resolved by giving the list two readings: an entry **containing `/` stays anchored** (`src/spec` excludes exactly that subtree, which is what UT-10 asserts), and a **bare name matches any path segment at any depth**. That is how everyone reads "exclude node_modules", and the alternative — listing every nesting — would make the default list a guess about someone else's directory layout.
+
+**One export was cut before it shipped.** A `manifestPath` helper existed for a caller that did not turn out to need it. An unused export is a promise nobody asked for.
+
+Two cases beyond the contract's letter, because the boundary logic invited them: a sibling named `srcextra` is not covered by the prefix `src`, and a top-level file named exactly by a prefix (`package.json`) is. Both are one-line traps in `startsWith`-shaped code.
 
 ---
 

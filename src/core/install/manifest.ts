@@ -19,7 +19,14 @@ export interface ManifestArtifact {
 }
 
 /** Harness-agnostic bundles copied to a stable path at install time (hooks must never invoke npx). */
-const BUNDLE_FILES = ['lumem-hook.mjs', 'lumem-runner.mjs'] as const
+/**
+ * Every bundle copied into `.lumem/bin/`. The `hook-bundle` kind means "a copied
+ * `.mjs` under `.lumem/bin`" — the name predates `lumem-spec.mjs`, which is not a
+ * hook but wants exactly the same treatment: copy never symlink, `contentHash`,
+ * drift detection, harness-agnostic uninstall. A parallel kind would have to
+ * re-earn all four (002 T5, requirement 5).
+ */
+const BUNDLE_FILES = ['lumem-hook.mjs', 'lumem-runner.mjs', 'lumem-spec.mjs'] as const
 
 function hashFile(filePath: string): string {
   return sha256(fs.readFileSync(filePath))

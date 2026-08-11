@@ -296,7 +296,7 @@ IT-11 lives in `test/spec-bundle.test.ts` rather than `test/packaging.test.ts` a
 
 ## T5 — Installer integration for the bundle
 
-- [ ] T5 — Installer integration for the bundle
+- [x] T5 — Installer integration for the bundle
 
 ### Overview
 
@@ -329,6 +329,32 @@ IT-12…IT-19.
 ### Success criteria
 
 Every case passes. `verify:pack` green. Install → uninstall returns every user file byte-identical.
+
+### Completion notes
+
+**Done 2026-08-11.** Cases IT-12…IT-19 added to `install.test.ts`, `sync.test.ts`, `uninstall.test.ts`, `status.test.ts` and `scripts/verify-pack.sh`.
+
+Evidence: `npm run verify` — 148 files checked, `tsc --noEmit` silent, **1482 tests passed** across 60 files, four bundles built. `sh scripts/verify-pack.sh` → `RESULT: PASS — the tarball is npx-ready`, including:
+
+```
+ok    dist/lumem-spec.mjs
+ok    .lumem/bin/lumem-spec.mjs is a real, non-empty file (not a symlink)
+ok    spec bundle next exits 0 with no lumem on PATH
+ok    spec bundle printed a phase line: phase=requirements action=write-prd
+```
+
+That last line is the whole argument for D8 in one command: a copied bundle answering correctly inside a freshly installed consumer project, with `PATH=/nonexistent`.
+
+**The production change is one line.** `BUNDLE_FILES` in `core/install/manifest.ts` gained `'lumem-spec.mjs'`. Copy-not-symlink, `contentHash`, drift detection, `--force` with backup, harness-agnostic uninstall and `status` all came with it, because `hook-bundle` already means "a copied `.mjs` under `.lumem/bin`" rather than literally "a hook". Requirement 5 asked for exactly this and it held.
+
+**The artifact id is `hook-bundle:lumem-spec`, not `spec-bundle:lumem-spec`** as `tdd.md` §5.1 said. A new kind would have needed changes in `apply.ts` (mode forcing), `uninstall.ts` (harness-agnostic id parsing) and the manifest, to arrive at behaviour identical to what the existing kind provides. The name is now slightly wrong for what it holds; that is cheaper than a parallel path, and the comment on `BUNDLE_FILES` says so.
+
+**Two mistakes of mine, both caught by the gate rather than by review:**
+
+- A scripted edit dropped `'.lumem/bin/lumem-spec.mjs'` inside an existing `toBe(...)` call in `manifest.test.ts`, making it a two-argument `toBe` — which `tsc` rejected. Split into its own assertion.
+- `PATH=/nonexistent` in `verify-pack.sh` hid `node` itself, so the new step exited 127. `node` is now invoked by absolute path, which is what "no lumem on PATH" actually means.
+
+Ten existing suites needed the third bundle staged in their fixtures. That is the cost of a bundle list that several tests enumerate by hand, and it is visible rather than hidden — no test asserts a count it does not name.
 
 ---
 

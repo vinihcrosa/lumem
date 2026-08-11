@@ -58,6 +58,7 @@ const RUNTIME_REQUIRED = [
   'dist/cli.js',
   'dist/lumem-hook.mjs',
   'dist/lumem-runner.mjs',
+  'dist/lumem-spec.mjs',
   'src/adapters/claude-code.json',
   'src/adapters/codex.json',
   'assets/skills/lumem-memory/SKILL.md',

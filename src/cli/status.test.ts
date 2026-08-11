@@ -33,6 +33,13 @@ const lockFixture = {
       hash: 'def456',
       mode: 'symlink',
     },
+    {
+      artifactId: 'hook-bundle:lumem-spec',
+      installedAt: '2026-08-07T12:00:02.000Z',
+      destPath: '/tmp/proj/.lumem/bin/lumem-spec.mjs',
+      hash: 'ghi789',
+      mode: 'copy',
+    },
   ],
 }
 
@@ -68,6 +75,13 @@ describe('runStatus', () => {
         destPath: '/tmp/proj/.lumem/bin/lumem-hook.mjs',
         mode: 'symlink',
         installedAt: '2026-08-07T12:00:01.000Z',
+      },
+      // IT-18: the spec bundle is listed like any other copied artifact.
+      {
+        artifactId: 'hook-bundle:lumem-spec',
+        destPath: '/tmp/proj/.lumem/bin/lumem-spec.mjs',
+        mode: 'copy',
+        installedAt: '2026-08-07T12:00:02.000Z',
       },
     ])
   })

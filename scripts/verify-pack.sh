@@ -166,6 +166,7 @@ require_file() {
 require_file 'dist/cli.js'
 require_file 'dist/lumem-hook.mjs'
 require_file 'dist/lumem-runner.mjs'
+require_file 'dist/lumem-spec.mjs'
 require_file 'src/adapters/claude-code.json'
 require_file 'src/adapters/codex.json'
 require_file 'assets/skills/lumem-memory/SKILL.md'
@@ -358,6 +359,55 @@ if [ -f "$HOOK" ]; then
     bad 'the hook injected nothing — the packaged install is not wired end to end'
     sed 's/^/          /' "$WORK/hook.out"
   fi
+fi
+
+head2 "spec bundle drives a feature directory"
+
+# 002 T5/IT-19. The spec gates must work from a copied bundle in a project that
+# has no lumem CLI on PATH — that is the whole reason they are a bundle and not
+# a CLI subcommand.
+SPEC="$PROJ/.lumem/bin/lumem-spec.mjs"
+if [ -L "$SPEC" ]; then
+  bad "$SPEC is a symlink — it must be a real self-contained copy"
+elif [ -f "$SPEC" ] && [ -s "$SPEC" ]; then
+  ok '.lumem/bin/lumem-spec.mjs is a real, non-empty file (not a symlink)'
+
+  FEATURE="$PROJ/docs/features/002-probe"
+  mkdir -p "$FEATURE"
+  printf '# Context\n' >"$FEATURE/context.md"
+  cat >"$FEATURE/decisions.md" <<'MD'
+---
+slug: 002-probe
+tier: light
+created: 2026-08-11
+---
+# Decisions
+
+## Cut, and why
+MD
+
+  # An empty PATH proves the bundle needs no lumem binary — so node itself has to
+  # be invoked by absolute path, since PATH is what would otherwise find it.
+  NODE_BIN=$(command -v node)
+  set +e
+  (cd "$PROJ" && PATH=/nonexistent "$NODE_BIN" "$SPEC" next docs/features/002-probe) \
+    >"$WORK/spec.out" 2>&1
+  SPEC_CODE=$?
+  set -e
+  if [ "$SPEC_CODE" -eq 0 ]; then
+    ok 'spec bundle next exits 0 with no lumem on PATH'
+  else
+    bad "spec bundle next exited $SPEC_CODE"
+    sed 's/^/          /' "$WORK/spec.out"
+  fi
+  if grep -q '^phase=' "$WORK/spec.out"; then
+    ok "spec bundle printed a phase line: $(cat "$WORK/spec.out")"
+  else
+    bad 'spec bundle printed no phase line'
+    sed 's/^/          /' "$WORK/spec.out"
+  fi
+else
+  bad '.lumem/bin/lumem-spec.mjs was not installed'
 fi
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ const SKILLS = ['alpha-skill', 'beta-skill']
 const CLAUDE_ARTIFACTS = [
   'hook-bundle:lumem-hook',
   'hook-bundle:lumem-runner',
+  'hook-bundle:lumem-spec',
   'hook-config:claude-code',
   'skill:alpha-skill@claude-code',
   'skill:beta-skill@claude-code',
@@ -60,6 +61,7 @@ beforeAll(() => {
   distDir = tmpDir('lumem-sync-dist-')
   fs.writeFileSync(path.join(distDir, 'lumem-hook.mjs'), 'export const hook = 1\n')
   fs.writeFileSync(path.join(distDir, 'lumem-runner.mjs'), 'export const runner = 1\n')
+  fs.writeFileSync(path.join(distDir, 'lumem-spec.mjs'), 'export const spec = 1\n')
 
   emptyPathDir = tmpDir('lumem-sync-path-')
 })
@@ -419,5 +421,35 @@ describe('registerSyncCommand', () => {
     parse(['sync', '--harness', 'codex'], ctx)
 
     expect(fs.existsSync(abs(ctx, '.agents/skills/alpha-skill/SKILL.md'))).toBe(true)
+  })
+})
+
+describe('runSync and the spec bundle (002 T5)', () => {
+  it('IT-15 reports drift and refuses to overwrite an edited spec bundle', () => {
+    const ctx = installedProject()
+    userEdit(ctx, '.lumem/bin/lumem-spec.mjs', '// edited by hand\n')
+
+    const { report, exitCode } = runSync(ctx)
+
+    expect(exitCode).toBe(3)
+    const drift = report.drift.find((entry) => entry.artifactId === 'hook-bundle:lumem-spec')
+    expect(drift?.state).toBe('modified')
+    expect(report.applied).toEqual([])
+    expect(fs.readFileSync(abs(ctx, '.lumem/bin/lumem-spec.mjs'), 'utf8')).toBe(
+      '// edited by hand\n',
+    )
+  })
+
+  it('IT-16 --force overwrites the edited spec bundle and keeps a backup', () => {
+    const ctx = installedProject()
+    userEdit(ctx, '.lumem/bin/lumem-spec.mjs', '// edited by hand\n')
+
+    const { exitCode } = runSync(ctx, { force: true })
+
+    expect(exitCode).toBe(0)
+    expect(fs.readFileSync(abs(ctx, '.lumem/bin/lumem-spec.mjs'), 'utf8')).toBe(
+      'export const spec = 1\n',
+    )
+    expect(backupContents(ctx)).toContain('// edited by hand\n')
   })
 })

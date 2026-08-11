@@ -24,6 +24,7 @@ const SKILLS = ['alpha-skill', 'beta-skill']
 const CLAUDE_ARTIFACTS = [
   'hook-bundle:lumem-hook',
   'hook-bundle:lumem-runner',
+  'hook-bundle:lumem-spec',
   'hook-config:claude-code',
   'skill:alpha-skill@claude-code',
   'skill:beta-skill@claude-code',
@@ -35,6 +36,7 @@ const CLAUDE_FILES = [
   '.claude/settings.json',
   '.lumem/bin/lumem-hook.mjs',
   '.lumem/bin/lumem-runner.mjs',
+  '.lumem/bin/lumem-spec.mjs',
 ]
 
 /**
@@ -78,6 +80,7 @@ beforeAll(() => {
   distDir = tmpDir('lumem-install-dist-')
   fs.writeFileSync(path.join(distDir, 'lumem-hook.mjs'), 'export const hook = 1\n')
   fs.writeFileSync(path.join(distDir, 'lumem-runner.mjs'), 'export const runner = 1\n')
+  fs.writeFileSync(path.join(distDir, 'lumem-spec.mjs'), 'export const spec = 1\n')
 
   emptyPathDir = tmpDir('lumem-install-path-')
 })
@@ -118,12 +121,16 @@ function abs(ctx: CliContext, relative: string): string {
   return path.join(ctx.projectDir, relative)
 }
 
-function readLockEntries(
-  ctx: CliContext,
-): { artifactId: string; destPath: string; mode: string }[] {
+interface LockEntry {
+  artifactId: string
+  destPath: string
+  mode: string
+  hash: string
+}
+
+function readLockEntries(ctx: CliContext): LockEntry[] {
   const raw = fs.readFileSync(abs(ctx, '.lumem/lumem-lock.json'), 'utf8')
-  return (JSON.parse(raw) as { entries: { artifactId: string; destPath: string; mode: string }[] })
-    .entries
+  return (JSON.parse(raw) as { entries: LockEntry[] }).entries
 }
 
 /** Full recursive picture of a tree: contents for files, targets for symlinks. */
@@ -661,5 +668,41 @@ describe('registerInstallCommand', () => {
     parse(['install', '--global'], ctx)
 
     expect(fs.existsSync(path.join(home, '.claude/skills/beta-skill/SKILL.md'))).toBe(true)
+  })
+})
+
+describe('runInstall of the spec bundle (002 T5)', () => {
+  it('IT-12 copies lumem-spec.mjs into .lumem/bin rather than symlinking it', () => {
+    const ctx = initProject(makeCtx(makeHome(['claude-code'])))
+    expect(runInstall(ctx).exitCode).toBe(0)
+
+    const dest = abs(ctx, '.lumem/bin/lumem-spec.mjs')
+    expect(fs.existsSync(dest)).toBe(true)
+    expect(fs.lstatSync(dest).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(dest, 'utf8')).toBe('export const spec = 1\n')
+  })
+
+  it('IT-13 records it in the lockfile in copy mode with a content hash', () => {
+    const ctx = initProject(makeCtx(makeHome(['claude-code'])))
+    runInstall(ctx)
+
+    const entry = readLockEntries(ctx).find((e) => e.artifactId === 'hook-bundle:lumem-spec')
+    expect(entry?.mode).toBe('copy')
+    expect(entry?.destPath).toBe(abs(ctx, '.lumem/bin/lumem-spec.mjs'))
+    expect(entry?.hash).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('IT-14 is idempotent: a second install leaves the file and the lockfile untouched', () => {
+    const ctx = initProject(makeCtx(makeHome(['claude-code'])))
+    runInstall(ctx)
+    const before = fs.readFileSync(abs(ctx, '.lumem/bin/lumem-spec.mjs'))
+    const lockBefore = fs.readFileSync(abs(ctx, '.lumem/lumem-lock.json'))
+
+    const { report } = runInstall(ctx)
+
+    expect(report.applied).toEqual([])
+    expect(report.skipped.map((s) => s.artifactId)).toContain('hook-bundle:lumem-spec')
+    expect(fs.readFileSync(abs(ctx, '.lumem/bin/lumem-spec.mjs'))).toEqual(before)
+    expect(fs.readFileSync(abs(ctx, '.lumem/lumem-lock.json'))).toEqual(lockBefore)
   })
 })

@@ -22,6 +22,7 @@ const SKILLS = ['alpha-skill', 'beta-skill']
 const CLAUDE_ARTIFACTS = [
   'hook-bundle:lumem-hook',
   'hook-bundle:lumem-runner',
+  'hook-bundle:lumem-spec',
   'hook-config:claude-code',
   'skill:alpha-skill@claude-code',
   'skill:beta-skill@claude-code',
@@ -39,7 +40,11 @@ const CODEX_FILES = [
   '.codex/hooks.json',
 ]
 
-const BUNDLE_FILES = ['.lumem/bin/lumem-hook.mjs', '.lumem/bin/lumem-runner.mjs']
+const BUNDLE_FILES = [
+  '.lumem/bin/lumem-hook.mjs',
+  '.lumem/bin/lumem-runner.mjs',
+  '.lumem/bin/lumem-spec.mjs',
+]
 
 /**
  * Shaped like the real harness templates: everything lumem injects lives under
@@ -82,6 +87,7 @@ beforeAll(() => {
   distDir = tmpDir('lumem-uninstall-dist-')
   fs.writeFileSync(path.join(distDir, 'lumem-hook.mjs'), 'export const hook = 1\n')
   fs.writeFileSync(path.join(distDir, 'lumem-runner.mjs'), 'export const runner = 1\n')
+  fs.writeFileSync(path.join(distDir, 'lumem-spec.mjs'), 'export const spec = 1\n')
 
   emptyPathDir = tmpDir('lumem-uninstall-path-')
 })
@@ -754,5 +760,22 @@ describe('registerUninstallCommand', () => {
 
     expect(report.purged).toBe(true)
     expect(fs.existsSync(abs(ctx, '.lumem'))).toBe(false)
+  })
+})
+
+describe('runUninstall and the spec bundle (002 T5)', () => {
+  it('IT-17 removes the spec bundle and leaves memory in place', () => {
+    const ctx = installed()
+    const memory = abs(ctx, '.lumem/memory/project.md')
+    fs.mkdirSync(path.dirname(memory), { recursive: true })
+    fs.writeFileSync(memory, '- [2026-08-11] a fact\n')
+
+    expect(fs.existsSync(abs(ctx, '.lumem/bin/lumem-spec.mjs'))).toBe(true)
+    const { exitCode } = runUninstall(ctx)
+
+    expect(exitCode).toBe(0)
+    expect(fs.existsSync(abs(ctx, '.lumem/bin/lumem-spec.mjs'))).toBe(false)
+    expect(fs.readFileSync(memory, 'utf8')).toBe('- [2026-08-11] a fact\n')
+    expect(lockArtifactIds(ctx)).not.toContain('hook-bundle:lumem-spec')
   })
 })

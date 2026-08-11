@@ -49,6 +49,7 @@ describe('buildManifest', () => {
     write(path.join(assetsDir, 'harness', 'claude-code', 'hooks.tmpl.json'), '{"hooks":{}}\n')
     write(path.join(distDir, 'lumem-hook.mjs'), 'export const hook = 1\n')
     write(path.join(distDir, 'lumem-runner.mjs'), 'export const runner = 1\n')
+    write(path.join(distDir, 'lumem-spec.mjs'), 'export const spec = 1\n')
   })
 
   afterEach(() => {
@@ -125,7 +126,7 @@ describe('buildManifest', () => {
       descriptors: [claude, codex],
     })
     const bundles = out.filter((a) => a.kind === 'hook-bundle')
-    expect(bundles).toHaveLength(2)
+    expect(bundles).toHaveLength(3)
     const hookPath = path.join(distDir, 'lumem-hook.mjs')
     expect(bundles.find((a) => a.id === 'hook-bundle:lumem-hook')).toEqual({
       id: 'hook-bundle:lumem-hook',
@@ -137,6 +138,9 @@ describe('buildManifest', () => {
     })
     expect(bundles.find((a) => a.id === 'hook-bundle:lumem-runner')?.dest.relPath).toBe(
       '.lumem/bin/lumem-runner.mjs',
+    )
+    expect(bundles.find((a) => a.id === 'hook-bundle:lumem-spec')?.dest.relPath).toBe(
+      '.lumem/bin/lumem-spec.mjs',
     )
   })
 
@@ -183,6 +187,10 @@ describe('buildManifest', () => {
     fs.rmSync(path.join(assetsDir, 'skills'), { recursive: true })
     fs.rmSync(path.join(assetsDir, 'harness'), { recursive: true })
     const out = buildManifest({ assetsDir, distDir, version: '0.1.0', descriptors: [claude] })
-    expect(out.map((a) => a.id)).toEqual(['hook-bundle:lumem-hook', 'hook-bundle:lumem-runner'])
+    expect(out.map((a) => a.id)).toEqual([
+      'hook-bundle:lumem-hook',
+      'hook-bundle:lumem-runner',
+      'hook-bundle:lumem-spec',
+    ])
   })
 })

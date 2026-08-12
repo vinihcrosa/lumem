@@ -227,7 +227,7 @@ Neither failure was a bad fixture. Both were the contract being honest about lan
 
 ## T4 — Verdict record and the `Gate:` line
 
-- [ ] T4 — Verdict record and the `Gate:` line
+- [x] T4 — Verdict record and the `Gate:` line
 - **Gate:** vitest run src/spec/feature
 
 ### Overview
@@ -261,6 +261,20 @@ UT-25…UT-31.
 ### Success criteria
 
 Every case passes, **and every 002 case that touches `verdict` passes after the type change** — that is the non-regression this task owns.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/feature.ts`, `src/spec/feature.test.ts`, plus the one call site in `src/spec/next.ts` the type change reached; 9 assertions covering UT-25…UT-31.
+
+Evidence: `npm run verify` — 154 files checked, `tsc --noEmit` silent, **1549 tests passed** across 62 files.
+
+**The breaking type change cost exactly two lines.** `SpecFeature.verdict` went from `'pass' | 'fail'` to `VerdictRecord`, and `tsc` named both consumers immediately: a comparison in `next.ts` and a fixture in `next.test.ts`. Everything 002 asserted about verdicts passes unchanged.
+
+**A `Gate:` line needed an owner, and the parser had no notion of one.** The graph table is read row by row and the checkbox lines are matched by the id they carry — but a `- **Gate:**` line carries no id, so it can only be attributed by position. The reader now tracks the task whose checkbox opened the body it is inside, and a Gate line outside any body is a warning rather than a silent loss.
+
+**A second `Result` line starts a new record.** Without that, a command or fingerprint below the second verdict would attach to the first, producing a record that mixes two runs — worse than either. UT-29 asserts the replacement and the warning together.
+
+The fingerprint is read as the **first whitespace-delimited token**, so `4f9c1a… (1284 files)` yields `4f9c1a…` and the count stays prose. That also means a truncated hash is kept verbatim: it will not match a computed one, and reporting that is the point rather than a bug to paper over.
 
 ---
 

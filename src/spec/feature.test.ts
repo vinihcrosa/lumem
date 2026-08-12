@@ -296,3 +296,122 @@ describe('readFeature — artifacts and test ids', () => {
     expect(readFeature(asFile).warnings[0]).toContain('not a readable directory')
   })
 })
+
+describe('readFeature — the verdict record and the gate line (003 T4)', () => {
+  const graph = [
+    '| # | Title | Domain | Complexity | Depends on | Cases |',
+    '|---|---|---|---|---|---|',
+    '| T1 | Parse | source | low | — | UT-01 |',
+    '| T2 | Derive | source | low | T1 | UT-02 |',
+  ].join('\n')
+
+  const bodies = [
+    '',
+    '## T1',
+    '',
+    '- [x] T1 — Parse',
+    '- **Gate:** vitest run src/spec',
+    '',
+    '## T2',
+    '',
+    '- [ ] T2 — Derive',
+  ].join('\n')
+
+  const withVerdict = (verdict: string): Record<string, string> => ({
+    'decisions.md': DECISIONS,
+    'tasks.md': `${graph}${bodies}\n\n## Verdict\n\n${verdict}`,
+  })
+
+  it('UT-25 parses result, command and fingerprint from a full block', () => {
+    const feature = read(
+      withVerdict(
+        [
+          '- **Result:** PASS',
+          '- **Command:** npm run verify',
+          '- **Fingerprint:** b0de76df6f1a04cacabaa433c34c3f441fee3b15e3d1d16f6be116476037d38d (138 files)',
+          '- **Evidence:** 62 files, 1540 tests, 0 failed',
+        ].join('\n'),
+      ),
+    )
+
+    expect(feature.verdict).toEqual({
+      result: 'pass',
+      command: 'npm run verify',
+      // The file count that follows is prose for a human and is not parsed.
+      fingerprint: 'b0de76df6f1a04cacabaa433c34c3f441fee3b15e3d1d16f6be116476037d38d',
+    })
+  })
+
+  it('UT-26 reads a lowercase result', () => {
+    expect(read(withVerdict('- **Result:** fail\n')).verdict?.result).toBe('fail')
+  })
+
+  it('UT-27 parses a verdict written before this slice, with neither field', () => {
+    const feature = read(
+      withVerdict('- **Result:** PASS\n- **Evidence:** 60 files, 1498 tests, 0 failed\n'),
+    )
+
+    expect(feature.verdict?.result).toBe('pass')
+    expect(feature.verdict?.command).toBeUndefined()
+    expect(feature.verdict?.fingerprint).toBeUndefined()
+    expect(feature.warnings).toEqual([])
+  })
+
+  it('UT-28 keeps a truncated fingerprint verbatim rather than normalising it', () => {
+    const feature = read(
+      withVerdict(
+        '- **Result:** PASS\n- **Command:** x\n- **Fingerprint:** 4f9c1a… (1284 files)\n',
+      ),
+    )
+
+    // It will not match a computed hash, and reporting that is the point.
+    expect(feature.verdict?.fingerprint).toBe('4f9c1a…')
+  })
+
+  it('UT-29 warns on two disagreeing verdicts and lets the last win', () => {
+    const feature = read(
+      withVerdict(
+        [
+          '- **Result:** PASS',
+          '- **Command:** npm run verify',
+          '',
+          '## Verdict',
+          '',
+          '- **Result:** FAIL',
+          '- **Command:** vitest run',
+        ].join('\n'),
+      ),
+    )
+
+    expect(feature.verdict).toEqual({ result: 'fail', command: 'vitest run' })
+    expect(feature.warnings.some((w) => w.includes('two verdicts recorded'))).toBe(true)
+  })
+
+  it('UT-29 says nothing when two verdicts agree', () => {
+    const feature = read(withVerdict('- **Result:** PASS\n\n## Verdict\n\n- **Result:** PASS\n'))
+    expect(feature.warnings).toEqual([])
+  })
+
+  it('UT-30 reads a task Gate line into the task that owns the body', () => {
+    const feature = read(withVerdict('- **Result:** PASS\n'))
+
+    expect(feature.tasks[0]?.gate).toBe('vitest run src/spec')
+    expect(feature.tasks[0]?.id).toBe('T1')
+  })
+
+  it('UT-31 leaves gate absent, not empty, when the body declares none', () => {
+    const feature = read(withVerdict('- **Result:** PASS\n'))
+
+    expect(feature.tasks[1]?.id).toBe('T2')
+    expect(feature.tasks[1]?.gate).toBeUndefined()
+  })
+
+  it('UT-31 warns about a Gate line that belongs to no task', () => {
+    const feature = read({
+      'decisions.md': DECISIONS,
+      'tasks.md': `${graph}\n\n- **Gate:** npm run verify\n`,
+    })
+
+    expect(feature.warnings.some((w) => w.includes('Gate line outside any task body'))).toBe(true)
+  })
+})

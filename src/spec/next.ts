@@ -98,7 +98,7 @@ const RULES: readonly Rule[] = [
   (f) => (f.verdict === undefined ? { phase: 'verify', action: 'verify' } : undefined),
 
   // A recorded failure is not done: the tree has to be fixed and re-verified.
-  (f) => (f.verdict === 'fail' ? { phase: 'verify', action: 'verify' } : undefined),
+  (f) => (f.verdict?.result === 'fail' ? { phase: 'verify', action: 'verify' } : undefined),
 ]
 
 /** The single next action. Always returns one; `done` is the terminal answer. */

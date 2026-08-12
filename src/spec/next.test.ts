@@ -33,7 +33,7 @@ function feature(overrides: Overrides = {}): SpecFeature {
   }
   const tier = overrides.tier === undefined ? 'full' : overrides.tier
   if (tier !== null) base.tier = tier
-  if (overrides.verdict !== undefined) base.verdict = overrides.verdict
+  if (overrides.verdict !== undefined) base.verdict = { result: overrides.verdict }
   return base
 }
 

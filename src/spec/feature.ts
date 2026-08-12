@@ -42,6 +42,25 @@ export interface QuestionRecord {
   effect?: QuestionEffect
 }
 
+/**
+ * A recorded verification verdict.
+ *
+ * `command` and `fingerprint` are optional because a verdict written before 003
+ * has neither, and such a verdict has to keep parsing — it is simply never fresh,
+ * which is the honest reading rather than an error.
+ */
+export interface VerdictRecord {
+  result: 'pass' | 'fail'
+  /** The command the author says produced this. */
+  command?: string
+  /**
+   * The tree fingerprint as recorded, **verbatim**. A human's truncated display
+   * form (`4f9c1a…`) is kept as written rather than normalised: it will not match
+   * a computed hash, and reporting that is the point.
+   */
+  fingerprint?: string
+}
+
 export interface TaskRecord {
   /** `T3`. */
   id: string
@@ -51,6 +70,11 @@ export interface TaskRecord {
   dependsOn: string[]
   /** Case ids this task owns, ranges already expanded. */
   testIds: string[]
+  /**
+   * The gate command this task declares, overriding the project default. Absent —
+   * never an empty string — when the body declares none.
+   */
+  gate?: string
 }
 
 /** Which artifacts exist, plus whether the prune left a record. */
@@ -82,9 +106,9 @@ export interface SpecFeature {
    *
    * A verdict is a claim about the tree, so it lives beside the tasks it covers
    * rather than in a file of its own — the doubt about that is on the record in
-   * TDD §14.
+   * 002 TDD §14.
    */
-  verdict?: 'pass' | 'fail'
+  verdict?: VerdictRecord
   /** Tolerant-parse complaints. Never thrown. */
   warnings: string[]
 }
@@ -130,6 +154,17 @@ const TASK_ROW = /^\|[ \t]*(T\d+)[ \t]*\|/
 const NO_DEPENDENCY = /^(?:—|–|-|)$/
 /** The verification verdict line in `tasks.md`: `- **Result:** PASS`. */
 const VERDICT_RESULT = /^-[ \t]*\*\*Result:\*\*[ \t]*(PASS|FAIL)\b/i
+/** `- **Command:** npm run verify` */
+const VERDICT_COMMAND = /^-[ \t]*\*\*Command:\*\*[ \t]*(.+)$/
+/**
+ * `- **Fingerprint:** 4f9c1a… (1284 files)`
+ *
+ * The first whitespace-delimited token only: the file count that may follow is
+ * prose for a human and is deliberately not parsed (003 `Cut, and why`).
+ */
+const VERDICT_FINGERPRINT = /^-[ \t]*\*\*Fingerprint:\*\*[ \t]*(\S+)/
+/** `- **Gate:** vitest run src/spec`, inside a task body. */
+const TASK_GATE = /^-[ \t]*\*\*Gate:\*\*[ \t]*(.+)$/
 
 /** Every flag false: a feature before its first artifact, and the parse's starting point. */
 function noArtifacts(): SpecArtifactFlags {
@@ -311,6 +346,8 @@ function readTasks(text: string, feature: SpecFeature): TaskRecord[] {
   const order: string[] = []
   const byId = new Map<string, TaskRecord>()
   let columns: { title: number; depends: number; cases: number } | undefined
+  /** The task whose body is being read, so a `Gate:` line knows its owner. */
+  let currentTask: string | undefined
 
   for (const line of lines) {
     const trimmed = line.trim()
@@ -318,10 +355,36 @@ function readTasks(text: string, feature: SpecFeature): TaskRecord[] {
     const verdictMatch = VERDICT_RESULT.exec(trimmed)
     if (verdictMatch?.[1] !== undefined) {
       const result = verdictMatch[1].toUpperCase() === 'PASS' ? 'pass' : 'fail'
-      if (feature.verdict !== undefined && feature.verdict !== result) {
+      if (feature.verdict !== undefined && feature.verdict.result !== result) {
         feature.warnings.push(`${FILES.tasks}: two verdicts recorded and they disagree`)
       }
-      feature.verdict = result
+      // A second Result line starts a new record: the command and fingerprint
+      // below it belong to that one, not to the verdict it replaced.
+      feature.verdict = { result }
+      continue
+    }
+
+    const commandMatch = VERDICT_COMMAND.exec(trimmed)
+    if (commandMatch?.[1] !== undefined && feature.verdict !== undefined) {
+      feature.verdict.command = commandMatch[1].trim()
+      continue
+    }
+
+    const fingerprintMatch = VERDICT_FINGERPRINT.exec(trimmed)
+    if (fingerprintMatch?.[1] !== undefined && feature.verdict !== undefined) {
+      feature.verdict.fingerprint = fingerprintMatch[1]
+      continue
+    }
+
+    const gateMatch = TASK_GATE.exec(trimmed)
+    if (gateMatch?.[1] !== undefined) {
+      // A Gate line belongs to the task whose checkbox opened the body it sits in.
+      const record = currentTask === undefined ? undefined : byId.get(currentTask)
+      if (record === undefined) {
+        feature.warnings.push(`${FILES.tasks}: a Gate line outside any task body`)
+      } else {
+        record.gate = gateMatch[1].trim()
+      }
       continue
     }
 
@@ -368,6 +431,7 @@ function readTasks(text: string, feature: SpecFeature): TaskRecord[] {
         continue
       }
       record.done = boxMatch[1] !== ' '
+      currentTask = boxMatch[2]
     }
   }
 

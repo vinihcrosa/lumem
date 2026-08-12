@@ -1,7 +1,7 @@
 # Tasks — 003 Closing the test loop
 
 **Derived from:** `tdd.md`, `tests.md`
-**Status:** draft, awaiting review
+**Status:** complete — verdict PASS at the end, and `retrospective.md`
 
 Eight tasks, 73 cases. Sized by 002's `tdd.md` §3.4: fewer and larger, split only at a contract boundary, a disjoint-file boundary, or a domain boundary.
 
@@ -503,3 +503,16 @@ Two facts fall out, both recorded in `tdd.md` §13:
 - Every id in `tests.md` appears in exactly one task: UT-01…UT-54 and UT-56…UT-65 across T1–T7; IT-01…IT-09 in T8.
 - 73 of 73 assigned. No orphans, no duplicates, no cycles.
 - Every task owns cases, so no `task-without-tests` finding is expected — unlike 002, where T8 was prompt assets.
+
+---
+
+## Verdict
+
+- **Result:** PASS
+- **Command:** npm run verify
+- **Fingerprint:** d8650017f7bfb86125bfe9128c9f4d5e30c2465cf955ff608ada022b69d94f61 (145 files)
+- **Evidence:** `npm run verify` — biome 158 files no fixes, `tsc --noEmit` silent, 1609 tests passed across 65 files, four bundles built. `sh scripts/verify-pack.sh` → PASS. `lint --phase prd|tdd|tasks` all exit 0 through the copied bundle.
+
+**This is the first verdict in lumem that had to be earned.** The fingerprint above is what the tree actually hashes to; `lint --phase verdict` recomputes it and refuses anything else. Recording it here does not invalidate it, because `docs/` is excluded — which is D7 working rather than a convenience.
+
+A later note in the document that records the verdict.

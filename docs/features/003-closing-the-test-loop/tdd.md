@@ -1,6 +1,6 @@
 # TDD — 003 Closing the test loop
 
-**Status:** draft, awaiting review
+**Status:** implemented — verdict PASS, see `tasks.md`
 **Depends on:** `context.md`, `decisions.md` (D1–D8 plus `Cut, and why`), `questions.md` (round 1, stopped)
 
 ## Summary

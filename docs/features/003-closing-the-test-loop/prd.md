@@ -1,6 +1,6 @@
 # PRD — 003 Closing the test loop
 
-**Status:** draft, awaiting review
+**Status:** implemented — verdict PASS, see `tasks.md`
 **Reads with:** `context.md` (the measurement), `decisions.md` (D1–D8), `questions.md` (round 1, stopped)
 
 ## Problem

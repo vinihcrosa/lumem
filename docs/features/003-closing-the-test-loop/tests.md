@@ -1,7 +1,7 @@
 # Test contract — 003 Closing the test loop
 
 **Derived from:** `tdd.md` §2–§9
-**Status:** draft, awaiting review
+**Status:** implemented — verdict PASS, see `tasks.md`
 
 The canonical numbered case list. `tasks.md` assigns every id below to exactly one task; `lint --phase tasks` fails on an orphan or a duplicate — and, once this slice ships, on a case no test names.
 

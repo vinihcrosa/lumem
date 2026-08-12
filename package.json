@@ -34,16 +34,13 @@
   "bin": {
     "lumem": "./dist/cli.js"
   },
-  "files": [
-    "dist",
-    "assets",
-    "src/adapters/*.json"
-  ],
+  "files": ["dist", "assets", "src/adapters/*.json"],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build": "tsup",
+    "version": "biome check --write package.json && git add package.json",
     "check": "biome check . && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "verify": "npm run check && vitest run --passWithNoTests && npm run build",

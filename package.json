@@ -1,6 +1,6 @@
 {
   "name": "@vinihcrosa/lumem",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Memory and self-learning layer for coding agents (Claude Code, Codex)",
   "keywords": [
     "memory",
@@ -34,7 +34,11 @@
   "bin": {
     "lumem": "./dist/cli.js"
   },
-  "files": ["dist", "assets", "src/adapters/*.json"],
+  "files": [
+    "dist",
+    "assets",
+    "src/adapters/*.json"
+  ],
   "publishConfig": {
     "access": "public"
   },

@@ -280,7 +280,7 @@ The fingerprint is read as the **first whitespace-delimited token**, so `4f9c1a�
 
 ## T5 — Project root, verdict state, command precedence
 
-- [ ] T5 — Project root, verdict state, command precedence
+- [x] T5 — Project root, verdict state, command precedence
 - **Gate:** vitest run src/spec/verify
 
 ### Overview
@@ -314,6 +314,20 @@ UT-01…UT-04, UT-32…UT-42.
 ### Success criteria
 
 Every case passes. The state order is asserted explicitly, not implied by the case that happens to run first.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/verify.ts`, `src/spec/verify.test.ts`; 25 assertions covering UT-01…UT-04 and UT-32…UT-42.
+
+Evidence: `npm run verify` — 154 files checked, `tsc --noEmit` silent, **1574 tests passed** across 63 files.
+
+**The state order is asserted as order, not as five separate outcomes.** Three cases exist only to pin precedence: absent ahead of unverifiable, unverifiable ahead of stale, and — the one that matters — **stale ahead of failing**. A recorded failure against a tree that has since changed describes a tree that no longer exists, and reporting it as a failure would send someone to fix something that may already be fixed.
+
+**`readVerification` takes the config reader as an argument** rather than importing `readConfig`. `core/config` pulls in zod, and this module reaches the zero-dependency bundle; injecting the reader keeps the purity contract intact and makes the unit cases independent of a config file on disk. The bundle passes a real reader in T8.
+
+**Two behaviours the contract did not name, both decided here.** A `.lumem` that is a *file* rather than a directory does not mark a root — `statSync().isDirectory()` is the test, so a stray file cannot claim a project. And a blank command, in either the task or the config, counts as absent rather than as a command that happens to be empty.
+
+**A test comparison was wrong, not the code.** On macOS `os.tmpdir()` is `/var/folders/…`, a symlink to `/private/var/folders/…`. The first cases compared the walker's output against `fs.realpathSync`, and it returns what `path.resolve` gives — the form the caller passed in. Echoing a caller's path back unchanged is the better behaviour; the cases now say so explicitly.
 
 ---
 

@@ -390,7 +390,7 @@ It is worth recording rather than quietly fixing: this is precisely the failure 
 
 ## T7 — `next` with an optional `VerificationState`
 
-- [ ] T7 — `next` with an optional `VerificationState`
+- [x] T7 — `next` with an optional `VerificationState`
 - **Gate:** vitest run src/spec/next
 
 ### Overview
@@ -422,6 +422,16 @@ UT-56…UT-60.
 ### Success criteria
 
 Every case passes, and every 002 `next` case passes untouched.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/next.ts`, `src/spec/next.test.ts`; 6 assertions covering UT-56…UT-60.
+
+Evidence: `npm run verify` — 157 files checked, `tsc --noEmit` silent, **1599 tests passed** across 64 files. All 22 of 002's `next` cases pass untouched.
+
+**The rule is last in the chain, and that placement is the requirement.** An unfinished graph and an open question both outrank verification, so a stale verdict never pulls attention away from work that has to happen first. Two cases pin it — one for a half-done graph, one for an unanswered question — because the ordering is the kind of thing a later refactor reshuffles without noticing.
+
+**Optional means genuinely optional, not defaulted.** With no `VerificationState` the rule is silent and the answer is 002's, case for case. That is not a compatibility shim: computing the state costs a walk of the whole tree, and a caller that only wants to know which task is next should not pay for it. `next` stays advice that fails open; `lint --phase verdict` is what refuses.
 
 ---
 

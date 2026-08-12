@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { QuestionRecord, SpecFeature, SpecTier, TaskRecord } from './feature'
 import { nextAction } from './next'
+import type { VerificationState } from './verify'
 
 interface Overrides {
   /** `null` means no tier was recorded — the state `readFeature` returns for a missing or unknown one. */
@@ -210,5 +211,63 @@ describe('nextAction — done', () => {
   it('UT-28 always returns exactly one action, whatever the input', () => {
     const action = nextAction(feature({ tasks: [task('T1', true)], verdict: 'pass' }))
     expect(Object.keys(action).sort()).toEqual(['action', 'phase'])
+  })
+})
+
+describe('nextAction — with a verification state (003 T7)', () => {
+  const done = [task('T1', true), task('T2', true, ['T1'])]
+
+  const state = (s: VerificationState['state']): VerificationState => ({
+    state: s,
+    command: 'npm run verify',
+    computed: { hash: 'abc', fileCount: 1, incomplete: false },
+  })
+
+  it('UT-56 reports done for a fresh verdict on a finished graph', () => {
+    expect(nextAction(feature({ tasks: done, verdict: 'pass' }), state('fresh'))).toEqual({
+      phase: 'done',
+      action: 'done',
+    })
+  })
+
+  it('UT-57 sends a stale verdict back to verification', () => {
+    expect(nextAction(feature({ tasks: done, verdict: 'pass' }), state('stale'))).toEqual({
+      phase: 'verify',
+      action: 'verify',
+    })
+  })
+
+  it('UT-58 sends an unverifiable verdict back to verification', () => {
+    expect(nextAction(feature({ tasks: done, verdict: 'pass' }), state('unverifiable'))).toEqual({
+      phase: 'verify',
+      action: 'verify',
+    })
+  })
+
+  it('UT-59 reproduces 002 exactly when no state is supplied', () => {
+    // The same feature that reads `verify` with a stale state reads `done`
+    // without one: next is advice and fails open; lint is what refuses.
+    expect(nextAction(feature({ tasks: done, verdict: 'pass' }))).toEqual({
+      phase: 'done',
+      action: 'done',
+    })
+  })
+
+  it('UT-60 keeps an unfinished graph ahead of verification', () => {
+    const partial = [task('T1', true), task('T2', false, ['T1'])]
+    expect(nextAction(feature({ tasks: partial }), state('stale'))).toEqual({
+      phase: 'execute',
+      action: 'execute-task',
+      target: 'T2',
+    })
+  })
+
+  it('UT-60 keeps an open question ahead of verification', () => {
+    const f = feature({
+      tasks: done,
+      verdict: 'pass',
+      questions: [{ id: 'Q1', round: 1, answered: false }],
+    })
+    expect(nextAction(f, state('stale')).action).toBe('await-answers')
   })
 })

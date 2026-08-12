@@ -13,6 +13,7 @@
  */
 
 import type { SpecFeature, SpecPhase } from './feature'
+import type { VerificationState } from './verify'
 
 export interface NextAction {
   phase: SpecPhase
@@ -46,7 +47,7 @@ function readyTask(f: SpecFeature): string | undefined {
   return lowestId(ready)
 }
 
-type Rule = (f: SpecFeature) => NextAction | undefined
+type Rule = (f: SpecFeature, v?: VerificationState) => NextAction | undefined
 
 /**
  * The derivation table from TDD 002 §5.4, in order.
@@ -99,12 +100,24 @@ const RULES: readonly Rule[] = [
 
   // A recorded failure is not done: the tree has to be fixed and re-verified.
   (f) => (f.verdict?.result === 'fail' ? { phase: 'verify', action: 'verify' } : undefined),
+
+  // Anything a caller could learn about freshness, but only when it looked. With
+  // no `VerificationState` this rule is silent and the answer is 002's exactly —
+  // `next` is advice and fails open; `lint --phase verdict` is what refuses.
+  (_f, v) =>
+    v !== undefined && v.state !== 'fresh' ? { phase: 'verify', action: 'verify' } : undefined,
 ]
 
-/** The single next action. Always returns one; `done` is the terminal answer. */
-export function nextAction(f: SpecFeature): NextAction {
+/**
+ * The single next action. Always returns one; `done` is the terminal answer.
+ *
+ * `v` is optional on purpose. Computing it costs a walk of the whole tree, and a
+ * caller that only wants to know which task is next should not pay for it —
+ * omitting it reproduces 002's behaviour exactly, case for case.
+ */
+export function nextAction(f: SpecFeature, v?: VerificationState): NextAction {
   for (const rule of RULES) {
-    const action = rule(f)
+    const action = rule(f, v)
     if (action !== undefined) return action
   }
   return { phase: 'done', action: 'done' }

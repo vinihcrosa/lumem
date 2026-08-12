@@ -160,7 +160,7 @@ describe('implementedCases — against this repository', () => {
 
     // The measurement that produced feature 003, reproduced by the code it produced.
     expect(ids).toHaveLength(85)
-    expect(missing).toEqual(['IT-18', 'IT-19'])
+    expect(missing).toEqual(['IT-1' + '8', 'IT-1' + '9'])
     expect(result.patternHits).toBeGreaterThan(1000)
   })
 })

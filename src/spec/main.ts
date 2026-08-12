@@ -16,17 +16,21 @@
 // waiting for its first artifact.
 
 import fs from 'node:fs'
+import path from 'node:path'
+import type { VerificationConfig } from '../core/verification'
+import { verificationFromJson } from '../core/verification'
 import { readFeature } from './feature'
 import type { SpecFinding, SpecLintPhase } from './lint'
-import { lintSpec } from './lint'
+import { SPEC_LINT_PHASES, lintSpec } from './lint'
 import { nextAction } from './next'
+import { readVerification } from './verify'
 
-const LINT_PHASES: readonly string[] = ['prd', 'tdd', 'tasks']
+const LINT_PHASES: readonly string[] = SPEC_LINT_PHASES
 
 const USAGE = `lumem-spec — read-only checks over a feature directory
 
   next <feature-dir> [--json]
-  lint <feature-dir> --phase <prd|tdd|tasks> [--json]
+  lint <feature-dir> --phase <prd|tdd|tasks|verdict> [--json]
 
 Exit: 0 clean, 3 findings, 1 usage or read failure.`
 
@@ -92,6 +96,27 @@ function pathProblem(dir: string): string | undefined {
   }
 }
 
+/**
+ * A project's verification settings, or `undefined` when it has none.
+ *
+ * Read by hand rather than through `core/config`: that module's zod schema is the
+ * CLI's validator, and importing it here took the bundle from 26 KB to 162 KB and
+ * broke its zero-dependency contract. The purity assertion caught it on the first
+ * build, which is exactly what it is for.
+ *
+ * Unreadable or malformed config is `undefined`, and the caller falls back to the
+ * defaults — a gate that refuses to run because a config key is the wrong type
+ * would be worse than one that uses the default.
+ */
+function projectConfig(projectDir: string): VerificationConfig | undefined {
+  try {
+    const raw = fs.readFileSync(path.join(projectDir, '.lumem', 'lumem.config.json'), 'utf8')
+    return verificationFromJson(JSON.parse(raw))
+  } catch {
+    return undefined
+  }
+}
+
 function renderFindings(findings: SpecFinding[]): string {
   return findings
     .map((finding) => `${finding.severity}: ${finding.kind}: ${finding.message}`)
@@ -112,7 +137,9 @@ export function run(argv: readonly string[]): RunResult {
 
   if (args.command === 'next') {
     if (args.phase !== undefined) return fail('next takes no --phase')
-    const action = nextAction(readFeature(args.dir))
+    const feature = readFeature(args.dir)
+    const verification = readVerification(args.dir, feature.verdict, undefined, projectConfig)
+    const action = nextAction(feature, verification)
     const target = action.target === undefined ? '' : ` target=${action.target}`
     const line = `phase=${action.phase} action=${action.action}${target}`
     return { out: args.json ? JSON.stringify(action) : line, err: '', code: 0 }
@@ -123,7 +150,9 @@ export function run(argv: readonly string[]): RunResult {
     if (!LINT_PHASES.includes(args.phase)) {
       return fail(`unknown phase '${args.phase}'; expected ${LINT_PHASES.join(', ')}`)
     }
-    const findings = lintSpec(readFeature(args.dir), args.phase as SpecLintPhase)
+    const findings = lintSpec(readFeature(args.dir), args.phase as SpecLintPhase, {
+      readVerificationConfig: projectConfig,
+    })
     return {
       out: args.json ? JSON.stringify(findings) : renderFindings(findings),
       err: '',

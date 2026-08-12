@@ -437,7 +437,7 @@ Evidence: `npm run verify` — 157 files checked, `tsc --noEmit` silent, **1599 
 
 ## T8 — Bundle surface and the acceptance test
 
-- [ ] T8 — Bundle surface and the acceptance test
+- [x] T8 — Bundle surface and the acceptance test
 - **Gate:** npm run verify
 
 ### Overview
@@ -471,6 +471,30 @@ IT-01…IT-09. **IT-08 is the acceptance test for the feature.**
 ### Success criteria
 
 `npm run verify` green. `sh scripts/verify-pack.sh` green. IT-08 passes against `docs/features/002-spec-driven` unmodified.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/main.ts`, `src/core/verification.ts`, `test/spec-bundle.test.ts`, `test/spec-002-regression.test.ts`; 10 assertions covering IT-01…IT-09.
+
+Evidence: `npm run verify` — 158 files checked, `tsc --noEmit` silent, **1609 tests passed** across 65 files. `sh scripts/verify-pack.sh` → PASS. The gates through the real bundle:
+
+```
+002-spec-driven    --phase tasks    exit=3  unimplemented-case: IT-18 …
+002-spec-driven    --phase verdict  exit=3  verdict-stale: fingerprint does not match
+003-…test-loop     --phase tasks    exit=0
+003-…test-loop     --phase verdict  exit=3  verdict-absent
+```
+
+The first line is the acceptance criterion, met against history unaltered.
+
+**Importing the config reader broke the bundle's contract, and the assertion caught it in one build.** `core/config` pulls in zod; adding it took `dist/lumem-spec.mjs` from **26 KB to 162 KB** and the purity check failed immediately. Pulling a schema library into a copied `.mjs` to read six optional fields is disproportionate, so `verificationFromJson` reads the block by hand — tolerant, falling back per field, in the shape the hook already uses. Back to 38 KB.
+
+**The deepest finding of the feature came from its own acceptance test.** It failed reporting *zero* unimplemented cases, and the cause was its own title: `it('IT-08 reports IT-18 and IT-19 as unimplemented…')` matches a test pattern and contains both ids, so **the test asserting they were missing declared them implemented.**
+
+Two facts fall out, both recorded in `tdd.md` §13:
+
+- **A test about an id must not be named with it** unless it implements it. The acceptance test now builds the ids it checks rather than spelling them.
+- **Case ids are unique per feature and the search is repository-wide**, so 002's `IT-08` and 003's `IT-08` are different cases that satisfy each other. Pollution can only ever *hide* an unimplemented case, never invent one, which is why the failure mode is quiet. The trigger for qualifying ids by feature is written down; the cost is renaming every case already written.
 
 ---
 

@@ -299,6 +299,8 @@ The convention holds for 83 of 85 cases here, in one language, with one runner. 
 
 ## 13. Open, deliberately
 
+- **Case ids are unique within a feature, and the search is repository-wide.** 002's `IT-08` and 003's `IT-08` are different cases, and a test naming either satisfies both. Found while writing the acceptance test, whose own title — naming the two ids it asserted were missing — declared them implemented. Two consequences, both live: a test *about* an id must not be *named* with it unless it implements it, and pollution can only ever **hide** an unimplemented case, never invent one. **Revisit when** a feature's cases are reported implemented and nobody wrote them; the fix is qualifying ids by feature, which costs a rename of every case already written.
+
 - **The default pattern set is a guess about other people's languages.** Four patterns covering vitest, jest, Go and pytest. It is wrong for a runner nobody here uses, and the config key is the whole mitigation.
 - **`SpecFeature.verdict` changes type**, which would break an external consumer if one existed. None does; the bundle is the only caller.
 - **A truncated fingerprint in a document read by a human** is a display convention nothing enforces. If someone records `4f9c1a…` as the value rather than as the display, the check reports `stale` forever and the message has to be clear enough to explain why.

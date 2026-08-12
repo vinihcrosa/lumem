@@ -68,3 +68,47 @@ export function defaultVerification(): VerificationConfig {
     testPatterns: [...DEFAULT_VERIFICATION.testPatterns],
   }
 }
+
+/** Strings only, and only when every element is one. A malformed list falls back. */
+function stringList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback
+  const out: string[] = []
+  for (const entry of value) {
+    if (typeof entry !== 'string' || entry === '') return fallback
+    out.push(entry)
+  }
+  return out
+}
+
+/**
+ * Read a `verification` block out of already-parsed config JSON, tolerantly.
+ *
+ * The zod schema in `core/config` is the real validator and stays the CLI's path.
+ * This exists for the bundled spec entry, which must not import zod: pulling a
+ * schema library into a copied `.mjs` to read six optional fields took the bundle
+ * from 26 KB to 162 KB and broke its zero-dependency contract, which the purity
+ * assertion caught on the first build.
+ *
+ * Tolerant on purpose, in the shape the hook already uses: anything malformed
+ * falls back to the default for that field rather than failing the run. A gate
+ * that refuses to work because one config key is the wrong type would be a worse
+ * outcome than a gate that uses the default and says nothing.
+ */
+export function verificationFromJson(config: unknown): VerificationConfig | undefined {
+  if (typeof config !== 'object' || config === null) return undefined
+  const block = (config as Record<string, unknown>).verification
+  if (typeof block !== 'object' || block === null) return undefined
+
+  const raw = block as Record<string, unknown>
+  const defaults = defaultVerification()
+  const command = typeof raw.command === 'string' && raw.command !== '' ? raw.command : undefined
+
+  return {
+    ...(command !== undefined ? { command } : {}),
+    fingerprintInclude: stringList(raw.fingerprintInclude, defaults.fingerprintInclude),
+    fingerprintExclude: stringList(raw.fingerprintExclude, defaults.fingerprintExclude),
+    testInclude: stringList(raw.testInclude, defaults.testInclude),
+    testSuffixes: stringList(raw.testSuffixes, defaults.testSuffixes),
+    testPatterns: stringList(raw.testPatterns, defaults.testPatterns),
+  }
+}

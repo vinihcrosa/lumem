@@ -4,6 +4,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { defaultVerification } from '../src/core/verification'
+import { computeFingerprint } from '../src/spec/fingerprint'
+import { findProjectDir } from '../src/spec/verify'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const bundlePath = path.join(repoRoot, 'dist', 'lumem-spec.mjs')
@@ -230,5 +233,137 @@ describe('lumem-spec lint', () => {
     const result = runSpec(['next', dir])
     expect(result.status).toBe(0)
     expect(result.stdout.trim()).toBe('phase=scope action=settle-size')
+  })
+})
+
+describe('lumem-spec verdict phase (003)', () => {
+  /** A lumem project with a source file, a test naming UT-01, and one feature. */
+  function verdictProject(verdict?: string, command = 'npm run verify'): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-spec-verdict-'))
+    fs.mkdirSync(path.join(root, '.lumem'))
+    fs.writeFileSync(
+      path.join(root, '.lumem', 'lumem.config.json'),
+      `${JSON.stringify({ version: 1, verification: { command } }, null, 2)}\n`,
+    )
+    fs.mkdirSync(path.join(root, 'src'))
+    fs.writeFileSync(path.join(root, 'src', 'a.ts'), 'export const a = 1\n')
+    fs.writeFileSync(path.join(root, 'src', 'a.test.ts'), "it('UT-01 works', () => {})\n")
+
+    const dir = path.join(root, SLUG)
+    fs.mkdirSync(dir)
+    fs.writeFileSync(path.join(dir, 'decisions.md'), DECISIONS)
+    fs.writeFileSync(path.join(dir, 'context.md'), '# Context\n')
+    fs.writeFileSync(path.join(dir, 'prd.md'), '# PRD\n')
+    fs.writeFileSync(path.join(dir, 'tdd.md'), CLEAN_TDD)
+    fs.writeFileSync(
+      path.join(dir, 'tests.md'),
+      '| ID | Input | Expected |\n|---|---|---|\n| UT-01 | x | y |\n',
+    )
+    fs.writeFileSync(
+      path.join(dir, 'tasks.md'),
+      [
+        '| # | Title | Domain | Complexity | Depends on | Cases |',
+        '|---|---|---|---|---|---|',
+        '| T1 | Parse | source | low | — | UT-01 |',
+        '',
+        '## T1',
+        '',
+        '- [x] T1 — Parse',
+        ...(verdict === undefined ? [] : ['', '## Verdict', '', verdict]),
+      ].join('\n'),
+    )
+    return dir
+  }
+
+  it('IT-02 exits 3 and names the staleness when the fingerprint does not match', () => {
+    const zeroes = '0'.repeat(64)
+    const dir = verdictProject(`- **Result:** PASS\n- **Fingerprint:** ${zeroes}`)
+    const result = runSpec(['lint', dir, '--phase', 'verdict'])
+
+    expect(result.status).toBe(3)
+    expect(result.stdout).toContain('verdict-stale')
+  })
+
+  it('IT-01 exits 0 once the recorded fingerprint is the one the tree has', () => {
+    const dir = verdictProject('- **Result:** PASS')
+    expect(runSpec(['lint', dir, '--phase', 'verdict']).status).toBe(3)
+
+    // Record what the tree actually hashes to, exactly as an author would after
+    // running the gate. The value comes from the same function the bundle uses.
+    const projectDir = findProjectDir(dir) as string
+    const { hash } = computeFingerprint(projectDir, defaultVerification())
+    const tasks = path.join(dir, 'tasks.md')
+    fs.writeFileSync(tasks, `${fs.readFileSync(tasks, 'utf8')}\n- **Fingerprint:** ${hash}\n`)
+
+    const fresh = runSpec(['lint', dir, '--phase', 'verdict'])
+    expect(fresh.status).toBe(0)
+    expect(fresh.stdout).toBe('')
+  })
+
+  it('IT-04 emits verdict findings as JSON in the shared shape', () => {
+    const dir = verdictProject()
+    const result = runSpec(['lint', dir, '--phase', 'verdict', '--json'])
+
+    expect(result.status).toBe(3)
+    const findings = JSON.parse(result.stdout) as Record<string, unknown>[]
+    expect(findings[0]?.kind).toBe('verdict-absent')
+    expect(Object.keys(findings[0] ?? {}).sort()).toEqual([
+      'file',
+      'ids',
+      'kind',
+      'message',
+      'severity',
+    ])
+  })
+
+  it('IT-03 exits 3 when a declared case is named by no test', () => {
+    const dir = verdictProject('- **Result:** PASS')
+    fs.writeFileSync(
+      path.join(dir, 'tests.md'),
+      '| ID | Input | Expected |\n|---|---|---|\n| UT-01 | x | y |\n| UT-07 | x | y |\n',
+    )
+    fs.writeFileSync(
+      path.join(dir, 'tasks.md'),
+      [
+        '| # | Title | Domain | Complexity | Depends on | Cases |',
+        '|---|---|---|---|---|---|',
+        '| T1 | Parse | source | low | — | UT-01, UT-07 |',
+      ].join('\n'),
+    )
+
+    const result = runSpec(['lint', dir, '--phase', 'tasks'])
+    expect(result.status).toBe(3)
+    expect(result.stdout).toContain('unimplemented-case')
+    expect(result.stdout).toContain('UT-07')
+  })
+
+  it('IT-05 reports verify as the next action while the verdict is stale', () => {
+    const zeroes = '0'.repeat(64)
+    const dir = verdictProject(`- **Result:** PASS\n- **Fingerprint:** ${zeroes}`)
+    const result = runSpec(['next', dir])
+
+    expect(result.status).toBe(0)
+    expect(result.stdout.trim()).toBe('phase=verify action=verify')
+  })
+
+  it('IT-06 needs no PATH, because nothing is executed', () => {
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-empty-path-'))
+    const dir = verdictProject('- **Result:** PASS')
+    const result = runSpec(['lint', dir, '--phase', 'verdict'], { PATH: emptyDir })
+
+    expect(result.status).toBe(3)
+    expect(result.stdout).toContain('verdict-stale')
+  })
+
+  it('IT-07 gates a feature directory outside any lumem project', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lumem-spec-orphan-'))
+    const dir = path.join(root, SLUG)
+    fs.mkdirSync(dir)
+    fs.writeFileSync(path.join(dir, 'decisions.md'), DECISIONS)
+    fs.writeFileSync(path.join(dir, 'tasks.md'), '| # | Title |\n|---|---|\n')
+
+    const result = runSpec(['lint', dir, '--phase', 'verdict'])
+    expect(result.status).toBe(3)
+    expect(result.stdout).toContain('no-lumem-project')
   })
 })

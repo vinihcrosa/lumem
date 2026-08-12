@@ -102,9 +102,44 @@ Every file has a soft limit. Past it, the next consolidation compacts: active ri
 | `lumem adr new` | Record an architectural decision under `docs/adr/` |
 | `lumem adr lint` | Check the supersedence chain for broken or circular links |
 
+The spec-driven checks ship as a copied bundle rather than as CLI subcommands, so no repository depends on a globally installed lumem being present at a matching version:
+
+| Command | What it does |
+|---|---|
+| `node .lumem/bin/lumem-spec.mjs next <feature-dir>` | Print the one next action, derived from the files on disk |
+| `node .lumem/bin/lumem-spec.mjs lint <feature-dir> --phase prd\|tdd\|tasks\|verdict` | Run that phase's gates |
+
+Both are read-only, take `--json`, and exit `0` clean, `3` on findings, `1` on their own failure.
+
 Every writing command takes `--dry-run` and shows the diff without touching anything. Every reading command takes `--json`.
 
 ---
+
+## Spec-driven
+
+Memory is what the agent knows. **Spec-driven is how work gets done with it**: a feature moves from an idea to verified code through named files under `docs/features/<NNN>-<slug>/`, with the questions asked before anything is written.
+
+Six skills, one per artifact, installed alongside the memory ones:
+
+```
+Scope → Requirements → Prune → TDD → Tasks → Execute → Verify
+```
+
+Three properties are the point, and each exists because its absence cost something measurable:
+
+- **Research before questions.** Anything the codebase, memory or an ADR answers is never a question. A question you could have looked up spends the author's attention and teaches them you did not read.
+- **Pruning is a phase, not a virtue.** Each authoring phase ends by auditing what it accumulated and recording what it removed, in a `Cut, and why` section kept separate from Non-Goals. The first feature run this way accumulated for three rounds and subtracted in none; the round that finally cut a third of the surface was the most valuable in the run.
+- **Every question records what its answer did.** `changed`, `accepted`, `rejected-framing`, `not-understood`. It is the only feedback loop that improves the question set — across three features the ratio has run 3-of-13, 2-of-10, 0-of-4, and that trend is itself the finding.
+
+### Claims have to be earned
+
+A declared test case that nobody wrote, and a verdict nobody ran, both stop a feature closing:
+
+- `tests.md` is a numbered contract; every case is owned by exactly one task, and a case that no test **names** is reported by id.
+- A verdict records the command that produced it and a fingerprint of the tree it ran against. lumem recomputes the fingerprint and refuses one that no longer matches.
+- **lumem never runs your gate.** It reads files and hashes them, so nothing it installs can alter or break your tree. The fingerprint covers what a gate reads and excludes `docs/` — otherwise writing the verdict would invalidate the verdict.
+
+The pipeline was built through itself, and the first thing the finished checks did was catch two cases the previous feature had declared and never implemented.
 
 ## Decisions
 

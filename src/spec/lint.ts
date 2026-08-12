@@ -15,10 +15,18 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import type { VerificationConfig } from '../core/verification'
+import { defaultVerification } from '../core/verification'
 import type { SpecFeature } from './feature'
+import { implementedCases } from './implemented'
+import { type VerificationState, findProjectDir, readVerification } from './verify'
 
-/** The three artifacts that have gates. Smaller than `SpecPhase`, which covers the whole pipeline. */
-export type SpecLintPhase = 'prd' | 'tdd' | 'tasks'
+/**
+ * The artifacts that have gates. Smaller than `SpecPhase`, which covers the whole
+ * pipeline: `context` and `done` can never be linted.
+ */
+export const SPEC_LINT_PHASES = ['prd', 'tdd', 'tasks', 'verdict'] as const
+export type SpecLintPhase = (typeof SPEC_LINT_PHASES)[number]
 
 export type SpecLintKind =
   /** A question is still open while a later artifact already exists. */
@@ -49,6 +57,20 @@ export type SpecLintKind =
   | 'task-without-tests'
   /** The artifact this phase checks is missing or unreadable. */
   | 'artifact-unreadable'
+  /** A declared case that no test names. */
+  | 'unimplemented-case'
+  /** No line in any searched file matched any test pattern. */
+  | 'no-tests-recognised'
+  /** The feature is not inside a lumem project, so there is nothing to check against. */
+  | 'no-lumem-project'
+  /** No verdict has been recorded. */
+  | 'verdict-absent'
+  /** No gate command is known, so no verdict here could have been earned. */
+  | 'verdict-unverifiable'
+  /** The recorded verdict describes a tree that has since changed. */
+  | 'verdict-stale'
+  /** The recorded verdict is a failure. */
+  | 'verdict-failing'
 
 export interface SpecFinding {
   kind: SpecLintKind
@@ -72,6 +94,23 @@ const FILES: Record<SpecLintPhase, string> = {
   prd: 'prd.md',
   tdd: 'tdd.md',
   tasks: 'tasks.md',
+  verdict: 'tasks.md',
+}
+
+/** How a caller supplies what lives outside the feature directory. */
+export interface SpecLintOptions {
+  /** Reads a project's verification settings. Injected so this module stays zod-free. */
+  readVerificationConfig?: (projectDir: string) => VerificationConfig | undefined
+}
+
+function noProject(file: string): SpecFinding {
+  return {
+    kind: 'no-lumem-project',
+    severity: 'gate',
+    file,
+    ids: [],
+    message: 'no .lumem directory above this feature, so there is no project to check it against',
+  }
 }
 
 /**
@@ -359,7 +398,97 @@ function cycleMembers(f: SpecFeature): string[] {
   return [...onCycle].sort()
 }
 
-function lintTasks(f: SpecFeature): SpecFinding[] {
+/**
+ * Declared cases that no test names — and, when nothing matched at all, one
+ * finding saying so instead.
+ *
+ * The replacement is the point. A wrong pattern set would otherwise report every
+ * declared case as missing: a wall of findings that hides its own cause. One
+ * finding that names the real problem is worth eighty-five that do not.
+ */
+function unimplemented(f: SpecFeature, opts: SpecLintOptions | undefined): SpecFinding[] {
+  const file = FILES.tasks
+  if (f.testIds.length === 0) return []
+
+  const projectDir = findProjectDir(f.dir)
+  if (projectDir === undefined) return [noProject(file)]
+
+  const cfg = opts?.readVerificationConfig?.(projectDir) ?? defaultVerification()
+  const found = implementedCases(projectDir, cfg, f.testIds)
+
+  // Two different facts, and only one of them is about the patterns. Files were
+  // searched and nothing matched → the pattern set is wrong for this project, and
+  // saying so once beats reporting every case as missing. No files at all → the
+  // cases are simply unimplemented, which is true and actionable.
+  if (found.filesSearched > 0 && found.patternHits === 0) {
+    return [
+      {
+        kind: 'no-tests-recognised',
+        severity: 'gate',
+        file,
+        ids: [],
+        message: `no test was recognised in ${found.filesSearched} searched file(s): the patterns do not match this project, so no case can be judged`,
+      },
+    ]
+  }
+
+  const findings: SpecFinding[] = []
+  for (const id of f.testIds) {
+    if (found.implemented.has(id)) continue
+    findings.push({
+      kind: 'unimplemented-case',
+      severity: 'gate',
+      file,
+      ids: [id],
+      message: `${id} is declared in tests.md and named by no test: it is owned, not written`,
+    })
+  }
+  return findings
+}
+
+/** The verdict phase: is there a claim, and was it earned against this tree? */
+function lintVerdict(f: SpecFeature, opts: SpecLintOptions | undefined): SpecFinding[] {
+  const file = FILES.verdict
+
+  // The task argument is deliberately absent: a verdict is the feature's closing
+  // claim and is broad by definition, while a task's `Gate:` line exists for that
+  // task's narrow claim. Accepting one here would let "one suite passed" close a
+  // whole feature — the precedence in `gateCommand` is for the execution loop.
+  const state: VerificationState | undefined = readVerification(
+    f.dir,
+    f.verdict,
+    undefined,
+    (projectDir) => opts?.readVerificationConfig?.(projectDir),
+  )
+  if (state === undefined) return [noProject(file)]
+
+  const gate = (kind: SpecLintKind, message: string): SpecFinding[] => [
+    { kind, severity: 'gate', file, ids: [], message },
+  ]
+
+  switch (state.state) {
+    case 'absent':
+      return gate('verdict-absent', 'no verdict is recorded, so nothing here has been claimed')
+    case 'unverifiable':
+      return gate(
+        'verdict-unverifiable',
+        'no gate command is known: name one in the task body or in lumem.config.json, or this verdict cannot have been earned',
+      )
+    case 'stale':
+      return gate(
+        'verdict-stale',
+        state.computed.incomplete
+          ? 'the tree could not be read completely, so the recorded verdict cannot be trusted'
+          : 'the recorded fingerprint does not match this tree: the verdict describes something else',
+      )
+    case 'failing':
+      return gate('verdict-failing', 'the recorded verdict is a failure')
+    default:
+      return []
+  }
+}
+
+function lintTasks(f: SpecFeature, opts: SpecLintOptions | undefined): SpecFinding[] {
   const file = FILES.tasks
   const findings: SpecFinding[] = []
   const owners = new Map<string, string[]>()
@@ -414,6 +543,8 @@ function lintTasks(f: SpecFeature): SpecFinding[] {
     }
   }
 
+  findings.push(...unimplemented(f, opts))
+
   const cycle = cycleMembers(f)
   if (cycle.length > 0) {
     findings.push({
@@ -433,11 +564,17 @@ function lintTasks(f: SpecFeature): SpecFinding[] {
  * named — so two runs over the same feature render identically and a gate is
  * never buried under information.
  */
-export function lintSpec(f: SpecFeature, phase: SpecLintPhase): SpecFinding[] {
+export function lintSpec(
+  f: SpecFeature,
+  phase: SpecLintPhase,
+  opts?: SpecLintOptions,
+): SpecFinding[] {
   let findings: SpecFinding[]
 
-  if (phase === 'tasks') {
-    findings = f.has.tasks ? lintTasks(f) : [unreadable(FILES.tasks)]
+  if (phase === 'verdict') {
+    findings = f.has.tasks ? lintVerdict(f, opts) : [unreadable(FILES.verdict)]
+  } else if (phase === 'tasks') {
+    findings = f.has.tasks ? lintTasks(f, opts) : [unreadable(FILES.tasks)]
   } else {
     const text = artifact(f.dir, FILES[phase])
     if (text === undefined) {

@@ -33,11 +33,23 @@ function bundleSpecifiers(code: string): string[] {
   return specs
 }
 
-/** Every specifier reachable from `entry` through relative imports. */
+/**
+ * Every specifier reachable from `entry` through relative imports.
+ *
+ * Line-based, and only on lines that begin an `import` or `export`: scanning the
+ * whole file for `from '…'` also matches **prose**. A doc comment reading
+ * `tell one thing from "another"` was read as an import of `another`, and the
+ * failure said the module graph had a non-builtin dependency. The checker was
+ * wrong, not the comment.
+ */
 function collectSpecifiers(entry: string, seen = new Set<string>(), out: string[] = []): string[] {
   if (seen.has(entry)) return out
   seen.add(entry)
-  const source = fs.readFileSync(entry, 'utf8')
+  const source = fs
+    .readFileSync(entry, 'utf8')
+    .split('\n')
+    .filter((line) => /^\s*(?:import|export)\b/.test(line))
+    .join('\n')
   for (const match of source.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)) {
     const spec = match[1] as string
     out.push(spec)

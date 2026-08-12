@@ -333,7 +333,7 @@ Evidence: `npm run verify` — 154 files checked, `tsc --noEmit` silent, **1574 
 
 ## T6 — `lint`: `tasks` extended, `verdict` added
 
-- [ ] T6 — `lint`: `tasks` extended, `verdict` added
+- [x] T6 — `lint`: `tasks` extended, `verdict` added
 - **Gate:** vitest run src/spec
 
 ### Overview
@@ -367,6 +367,20 @@ UT-43…UT-54. UT-46 is the one worth naming: it asserts an **absence** — that
 ### Success criteria
 
 Every case passes. `lint --phase tasks` on 002 reports IT-18 and IT-19; on 003 it reports nothing once this feature's own tests exist.
+
+### Completion notes
+
+**Done 2026-08-11.** `src/spec/lint.ts`, `src/spec/lint-tasks.test.ts`, `src/spec/lint-verdict.test.ts`, plus a correction to `src/spec/main.test.ts`; 19 assertions covering UT-43…UT-54.
+
+Evidence: `npm run verify` — 158 files checked, `tsc --noEmit` silent, **1593 tests passed** across 64 files.
+
+**A task's `Gate:` line does not reach the verdict phase, and that is the decision.** The first draft of a case assumed it would. It does not, and it should not: **the verdict is the feature's closing claim and is broad by definition**, while a task's gate exists for that task's narrow claim. Accepting one here would let "one suite passed" close a whole feature. `gateCommand`'s precedence is for the execution loop; the verdict phase reads the project command only. The case now asserts the refusal, and `lint.ts` carries the reason where someone would otherwise "fix" it.
+
+**"No pattern matched" and "no test files exist" are different facts.** The design folded them into one `no-tests-recognised`. Running it against a fixture with no tests produced *"no test was recognised in 0 searched file(s): the patterns do not match this project"* — which is a false accusation against the patterns. Now the replacement fires only when files **were** searched and none matched; with nothing searched, the cases are reported as unimplemented, which is what they are.
+
+**002's lint fixtures had to grow a `.lumem` and a test file.** Both are honest: a real feature lives inside a project, and its declared cases are normally written. The fixture now generates one `it()` per declared id, so the ownership cases stay about ownership and only the implementation cases exercise the new check.
+
+**The purity assertion was reading prose as an import.** A doc comment containing *tell one thing `from "another"`* matched the specifier regex, and the failure claimed the module graph had a non-builtin dependency. `collectSpecifiers` now scans only lines that begin an `import` or `export`. The checker was wrong, not the comment — and it was wrong before this task; the comment merely found it.
 
 ---
 

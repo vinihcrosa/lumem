@@ -372,7 +372,11 @@ Every case passes. `lint --phase tasks` on 002 reports IT-18 and IT-19; on 003 i
 
 **Done 2026-08-11.** `src/spec/lint.ts`, `src/spec/lint-tasks.test.ts`, `src/spec/lint-verdict.test.ts`, plus a correction to `src/spec/main.test.ts`; 19 assertions covering UT-43…UT-54.
 
-Evidence: `npm run verify` — 158 files checked, `tsc --noEmit` silent, **1593 tests passed** across 64 files.
+Evidence: `npm run verify` — 157 files checked, `tsc --noEmit` silent, **1593 tests passed** across 64 files.
+
+**This task's first commit claimed a passing gate it did not have.** `npm run verify` had failed on two `tsc` errors — a test helper's inferred parameter type was narrower than `SpecLintOptions`, so passing a config without a `command` was rejected — and the completion notes were written with numbers from the test run alone, before `check` was read. The claim was corrected and the gate re-run in full before this line was written.
+
+It is worth recording rather than quietly fixing: this is precisely the failure `lumem-verify` exists to prevent, committed by the feature that exists to make it detectable. What caught it was reading the output rather than the exit of one step — which is step 3 of the gate the skill spells out.
 
 **A task's `Gate:` line does not reach the verdict phase, and that is the decision.** The first draft of a case assumed it would. It does not, and it should not: **the verdict is the feature's closing claim and is broad by definition**, while a task's gate exists for that task's narrow claim. Accepting one here would let "one suite passed" close a whole feature. `gateCommand`'s precedence is for the execution loop; the verdict phase reads the project command only. The case now asserts the refusal, and `lint.ts` carries the reason where someone would otherwise "fix" it.
 

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { defaultVerification } from '../core/verification'
 import { readFeature } from './feature'
 import { computeFingerprint } from './fingerprint'
-import type { SpecFinding, SpecLintKind } from './lint'
+import type { SpecFinding, SpecLintKind, SpecLintOptions } from './lint'
 import { lintSpec } from './lint'
 
 const SLUG = '003-closing-the-test-loop'
@@ -54,11 +54,11 @@ function build(verdict?: string, gateLine?: string): Built {
   return { dir, root, hash: computeFingerprint(root, defaultVerification()).hash }
 }
 
-const withCommand = {
+const withCommand: SpecLintOptions = {
   readVerificationConfig: () => ({ ...defaultVerification(), command: 'npm run verify' }),
 }
 
-function lint(dir: string, opts = withCommand): SpecFinding[] {
+function lint(dir: string, opts: SpecLintOptions = withCommand): SpecFinding[] {
   return lintSpec(readFeature(dir), 'verdict', opts)
 }
 
